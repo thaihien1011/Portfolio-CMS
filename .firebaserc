@@ -1,0 +1,18 @@
+{
+  "projects": {
+    "default": "portfolio-cms-fd55d"
+  },
+  "targets": {
+    "portfolio-cms-fd55d": {
+      "hosting": {
+        "public": [
+          "portfolio-cms-fd55d"
+        ],
+        "admin": [
+          "portfolio-cms-fd55d-admin"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}

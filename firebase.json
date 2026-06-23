@@ -1,0 +1,47 @@
+{
+  "functions": {
+    "source": "Portfolio CMS/Apps/Apis",
+    "codebase": "default",
+    "runtime": "nodejs22"
+  },
+  "hosting": [
+    {
+      "target": "public",
+      "public": "Portfolio CMS/Apps/Web public/dist",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "rewrites": [
+        {
+          "source": "/api/**",
+          "function": "api"
+        },
+        {
+          "source": "**",
+          "destination": "/index.html"
+        }
+      ]
+    },
+    {
+      "target": "admin",
+      "public": "Portfolio CMS/Apps/Web admin/dist",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "rewrites": [
+        {
+          "source": "/api/**",
+          "function": "api"
+        },
+        {
+          "source": "**",
+          "destination": "/index.html"
+        }
+      ]
+    }
+  ]
+}
