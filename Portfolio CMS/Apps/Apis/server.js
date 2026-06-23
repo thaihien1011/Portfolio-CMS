@@ -172,6 +172,114 @@ app.post('/api/auth/login', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+// 2b. USER MANAGEMENT ROUTES
+app.get('/api/admin/users', authenticateToken, async (req, res) => {
+  try {
+    const usersSnap = await db.collection('users').get();
+    const list = [];
+    usersSnap.forEach(doc => {
+      const data = doc.data();
+      delete data.password_hash; // Security: do not expose hash
+      list.push(data);
+    });
+    res.json(list);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/admin/users', authenticateToken, async (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Username and password are required' });
+  }
+
+  try {
+    const userQuery = await db.collection('users').where('username', '==', username).limit(1).get();
+    if (!userQuery.empty) {
+      return res.status(400).json({ error: 'Username already exists' });
+    }
+
+    const id = crypto.randomUUID();
+    const password_hash = hashPassword(password);
+
+    const newUser = {
+      id,
+      username,
+      password_hash,
+      created_at: new Date().toISOString()
+    };
+
+    await db.collection('users').doc(id).set(newUser);
+    res.status(201).json({ message: 'User created successfully', id });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/admin/users/:id', authenticateToken, async (req, res) => {
+  const { id } = req.params;
+  const { username, password } = req.body;
+
+  try {
+    const userRef = db.collection('users').doc(id);
+    const userDoc = await userRef.get();
+    if (!userDoc.exists) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const updateData = {};
+    if (username) {
+      const duplicateQuery = await db.collection('users')
+        .where('username', '==', username)
+        .get();
+      let isDuplicate = false;
+      duplicateQuery.forEach(doc => {
+        if (doc.id !== id) isDuplicate = true;
+      });
+      if (isDuplicate) {
+        return res.status(400).json({ error: 'Username already exists' });
+      }
+      updateData.username = username;
+    }
+
+    if (password) {
+      updateData.password_hash = hashPassword(password);
+    }
+
+    await userRef.update(updateData);
+    res.json({ message: 'User updated successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/admin/users/:id', authenticateToken, async (req, res) => {
+  const { id } = req.params;
+
+  // Prevent users from deleting themselves
+  if (req.user.id === id) {
+    return res.status(400).json({ error: 'You cannot delete your own account while logged in.' });
+  }
+
+  try {
+    const userRef = db.collection('users').doc(id);
+    const userDoc = await userRef.get();
+    if (!userDoc.exists) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const allUsersSnap = await db.collection('users').get();
+    if (allUsersSnap.size <= 1) {
+      return res.status(400).json({ error: 'Cannot delete the last user in the system.' });
+    }
+
+    await userRef.delete();
+    res.json({ message: 'User deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // 3. ADMIN PROFILE UPDATE
 app.put('/api/admin/profile', authenticateToken, async (req, res) => {

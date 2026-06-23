@@ -44,6 +44,8 @@ function App() {
   const [skillsForm, setSkillsForm] = useState({ name: '', percentage: 80, order_index: 0 });
   const [eventsForm, setEventsForm] = useState({ event_date: '', date_string: '', category: '', title: '', description: '', highlight_summary: '', location: '', image_url: '', tab_category: 'science', order_index: 0 });
   const [galleryForm, setGalleryForm] = useState({ youtube_id: '', title: '', order_index: 0 });
+  const [usersList, setUsersList] = useState([]);
+  const [usersForm, setUsersForm] = useState({ username: '', password: '' });
 
   // Handle API Fetch wrapper with automatic auth error interception
   const apiCall = async (endpoint, options = {}) => {
@@ -95,9 +97,20 @@ function App() {
     }
   };
 
+  const fetchUsers = async () => {
+    if (!token) return;
+    try {
+      const res = await apiCall('/api/admin/users');
+      setUsersList(res || []);
+    } catch (err) {
+      console.error('Could not fetch users list:', err.message);
+    }
+  };
+
   useEffect(() => {
     if (token) {
       fetchCMSData();
+      fetchUsers();
     }
   }, [token]);
 
@@ -201,6 +214,7 @@ function App() {
     if (type === 'skills') setSkillsForm({ name: '', percentage: 80, order_index: 0 });
     if (type === 'events') setEventsForm({ event_date: '', date_string: '', category: '', title: '', description: '', highlight_summary: '', location: '', image_url: '', tab_category: 'science', order_index: 0 });
     if (type === 'gallery') setGalleryForm({ youtube_id: '', title: '', order_index: 0 });
+    if (type === 'users') setUsersForm({ username: '', password: '' });
   };
 
   const openEditModal = (type, item) => {
@@ -214,6 +228,7 @@ function App() {
     if (type === 'skills') setSkillsForm({ ...item });
     if (type === 'events') setEventsForm({ ...item });
     if (type === 'gallery') setGalleryForm({ ...item });
+    if (type === 'users') setUsersForm({ username: item.username, password: '' });
   };
 
   const deleteItem = async (type, id) => {
@@ -226,6 +241,7 @@ function App() {
       });
       setSuccess('Item deleted successfully.');
       fetchCMSData();
+      if (type === 'users') fetchUsers();
     } catch (err) {}
   };
 
@@ -236,6 +252,12 @@ function App() {
     if (modalType === 'skills') bodyData = skillsForm;
     if (modalType === 'events') bodyData = eventsForm;
     if (modalType === 'gallery') bodyData = galleryForm;
+    if (modalType === 'users') {
+      bodyData = { username: usersForm.username };
+      if (usersForm.password) {
+        bodyData.password = usersForm.password;
+      }
+    }
 
     const method = modalMode === 'create' ? 'POST' : 'PUT';
     const endpoint = modalMode === 'create' ? `/api/admin/${modalType}` : `/api/admin/${modalType}/${currentItemId}`;
@@ -248,6 +270,7 @@ function App() {
       setSuccess(`Item ${modalMode === 'create' ? 'created' : 'updated'} successfully.`);
       setModalOpen(false);
       fetchCMSData();
+      if (modalType === 'users') fetchUsers();
     } catch (err) {}
   };
 
@@ -333,6 +356,9 @@ function App() {
           <li className={`menu-item ${activePanel === 'gallery' ? 'active' : ''}`}>
             <button onClick={() => setActivePanel('gallery')}>Behind the Scenes</button>
           </li>
+          <li className={`menu-item ${activePanel === 'users' ? 'active' : ''}`}>
+            <button onClick={() => setActivePanel('users')}>Manage Accounts</button>
+          </li>
         </ul>
         <div className="sidebar-footer">
           <button className="logout-btn" onClick={handleLogout}>Sign Out</button>
@@ -348,6 +374,7 @@ function App() {
             {activePanel === 'skills' && 'Skills Configuration'}
             {activePanel === 'events' && 'Events & Awards Configuration'}
             {activePanel === 'gallery' && 'Video Gallery Configuration'}
+            {activePanel === 'users' && 'User Accounts Configuration'}
           </h1>
         </div>
 
@@ -638,6 +665,41 @@ function App() {
             </table>
           </div>
         )}
+
+        {/* USERS LIST VIEW */}
+        {activePanel === 'users' && (
+          <div className="panel-card">
+            <div className="data-header">
+              <h3 style={{ color: 'var(--color-pink)' }}>User Accounts</h3>
+              <button className="btn-primary" onClick={() => openCreateModal('users')}>Add New User</button>
+            </div>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Username</th>
+                  <th>Created At</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {usersList.map(item => (
+                  <tr key={item.id}>
+                    <td><strong>{item.username}</strong></td>
+                    <td>{item.created_at ? new Date(item.created_at).toLocaleString('vi-VN') : '-'}</td>
+                    <td className="action-buttons">
+                      <button className="btn-edit" onClick={() => openEditModal('users', item)}>Change Password</button>
+                      {item.username !== currentUser ? (
+                        <button className="btn-delete" onClick={() => deleteItem('users', item.id)}>Delete</button>
+                      ) : (
+                        <button className="btn-delete" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }} title="You cannot delete yourself">Delete</button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </main>
 
       {/* --- DASHBOARD ENTRY FORMS IN DIALOG MODALS --- */}
@@ -909,6 +971,35 @@ function App() {
                       className="form-control" 
                       value={galleryForm.order_index}
                       onChange={e => setGalleryForm({ ...galleryForm, order_index: e.target.value })}
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* USERS FORM */}
+              {modalType === 'users' && (
+                <>
+                  <div className="form-group">
+                    <label className="form-label">Username</label>
+                    <input 
+                      type="text" 
+                      className="form-control" 
+                      value={usersForm.username || ''}
+                      onChange={e => setUsersForm({ ...usersForm, username: e.target.value })}
+                      required
+                      disabled={modalMode === 'edit'}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">
+                      {modalMode === 'create' ? 'Password' : 'New Password (leave blank to keep current)'}
+                    </label>
+                    <input 
+                      type="password" 
+                      className="form-control" 
+                      value={usersForm.password || ''}
+                      onChange={e => setUsersForm({ ...usersForm, password: e.target.value })}
+                      required={modalMode === 'create'}
                     />
                   </div>
                 </>
