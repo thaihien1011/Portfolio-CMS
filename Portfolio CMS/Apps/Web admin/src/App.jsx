@@ -13,7 +13,6 @@ const getFullAssetUrl = (url) => {
 
 function App() {
   const [token, setToken] = useState(localStorage.getItem('portfolio_admin_token') || '');
-  const [setupMode, setSetupMode] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   
@@ -130,21 +129,6 @@ function App() {
         setUsername('');
         setPassword('');
       }
-    } catch (err) {}
-  };
-
-  const handleSetup = async (e) => {
-    e.preventDefault();
-    if (!username || !password) return setError('Username and password are required.');
-    try {
-      await apiCall('/api/auth/setup', {
-        method: 'POST',
-        body: JSON.stringify({ username, password })
-      });
-      setSuccess('Administrator registered successfully! Please log in.');
-      setSetupMode(false);
-      setUsername('');
-      setPassword('');
     } catch (err) {}
   };
 
@@ -284,13 +268,13 @@ function App() {
             <span>Portfolio CMS</span>
           </div>
 
-          <h2 className="auth-title">{setupMode ? 'Administrator Registration' : 'Admin Login'}</h2>
-          <p className="auth-subtitle">{setupMode ? 'Create the initial administrator account' : 'Enter credentials to manage portfolio databases'}</p>
+          <h2 className="auth-title">Admin Login</h2>
+          <p className="auth-subtitle">Enter credentials to manage portfolio databases</p>
 
           {error && <div className="error-message">{error}</div>}
           {success && <div className="success-message">{success}</div>}
 
-          <form onSubmit={setupMode ? handleSetup : handleLogin}>
+          <form onSubmit={handleLogin}>
             <div className="form-group">
               <label className="form-label">Username</label>
               <input 
@@ -312,17 +296,9 @@ function App() {
               />
             </div>
             <button type="submit" className="auth-btn">
-              {setupMode ? 'Register Admin' : 'Sign In'}
+              Sign In
             </button>
           </form>
-
-          <button 
-            onClick={() => { setSetupMode(!setupMode); setError(''); setSuccess(''); }} 
-            className="btn-edit" 
-            style={{ marginTop: '24px' }}
-          >
-            {setupMode ? 'Already setup? Login' : 'First time setting up? Register Admin'}
-          </button>
         </div>
       </div>
     );
@@ -712,6 +688,7 @@ function App() {
               {modalType === 'skills' && 'Skill Indicator'}
               {modalType === 'events' && 'Event log / Award'}
               {modalType === 'gallery' && 'Video Link'}
+              {modalType === 'users' && 'User Account'}
             </h2>
             <form onSubmit={handleModalSubmit}>
               {/* TIMELINE FORM */}

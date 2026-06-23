@@ -122,33 +122,6 @@ app.get('/api/portfolio', async (req, res) => {
 });
 
 // 2. AUTHENTICATION ROUTES
-app.post('/api/auth/setup', async (req, res) => {
-  const { username, password } = req.body;
-  if (!username || !password) {
-    return res.status(400).json({ error: 'Username and password are required' });
-  }
-  
-  try {
-    const usersSnap = await db.collection('users').limit(1).get();
-    if (!usersSnap.empty) {
-      return res.status(403).json({ error: 'Setup already completed. Initial administrator exists.' });
-    }
-    
-    const id = crypto.randomUUID();
-    const password_hash = hashPassword(password);
-    
-    await db.collection('users').doc(id).set({
-      id,
-      username,
-      password_hash,
-      created_at: new Date().toISOString()
-    });
-    res.status(201).json({ message: 'Administrator setup successful' });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
 app.post('/api/auth/login', async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) {
@@ -172,6 +145,8 @@ app.post('/api/auth/login', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+
 // 2b. USER MANAGEMENT ROUTES
 app.get('/api/admin/users', authenticateToken, async (req, res) => {
   try {

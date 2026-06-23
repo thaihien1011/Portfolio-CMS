@@ -13,6 +13,13 @@ if (admin.apps.length === 0) {
 
 const db = admin.firestore();
 
+// Password Hashing Helper (Matching server.js parity)
+function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
+  return `${salt}:${hash}`;
+}
+
 // Export the db reference for query handlers
 module.exports = {
   db,
@@ -258,6 +265,21 @@ async function seedDatabase() {
       for (const item of seedGallery) {
         await galleryRef.doc(item.id).set(item);
       }
+    }
+
+    // 6. Seed Default Admin User
+    const usersRef = db.collection('users');
+    const usersSnap = await usersRef.limit(1).get();
+    if (usersSnap.empty) {
+      console.log('Seeding default administrator user to Firestore...');
+      const id = crypto.randomUUID();
+      const password_hash = hashPassword('password123');
+      await usersRef.doc(id).set({
+        id,
+        username: 'admin',
+        password_hash,
+        created_at: new Date().toISOString()
+      });
     }
 
     console.log('Firestore seed checking complete.');
