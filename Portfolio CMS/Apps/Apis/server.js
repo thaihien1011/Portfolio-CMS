@@ -26,6 +26,82 @@ if (admin.apps.length === 0) {
 
 const db = admin.firestore();
 
+// Pre-built theme presets
+const THEME_PRESETS = {
+  deep_space: {
+    colors: {
+      primary_accent: '325, 100%, 58%',
+      secondary_accent: '180, 100%, 48%',
+      background: '#0c071d',
+      text_primary: '#ffffff',
+      text_secondary: '#c8bde0'
+    },
+    typography: { display_font: 'Outfit', body_font: 'Inter' },
+    effects: { glass_intensity: 'medium', show_glow_blobs: true, show_particles: true, card_border_radius: 24 },
+    active_preset: 'deep_space'
+  },
+  ocean_night: {
+    colors: {
+      primary_accent: '200, 100%, 55%',
+      secondary_accent: '170, 85%, 45%',
+      background: '#0a1628',
+      text_primary: '#ffffff',
+      text_secondary: '#b0c4de'
+    },
+    typography: { display_font: 'Space Grotesk', body_font: 'DM Sans' },
+    effects: { glass_intensity: 'medium', show_glow_blobs: true, show_particles: true, card_border_radius: 24 },
+    active_preset: 'ocean_night'
+  },
+  sakura: {
+    colors: {
+      primary_accent: '340, 82%, 62%',
+      secondary_accent: '300, 60%, 70%',
+      background: '#1a0a14',
+      text_primary: '#fff0f5',
+      text_secondary: '#d4a0b8'
+    },
+    typography: { display_font: 'Playfair Display', body_font: 'Nunito' },
+    effects: { glass_intensity: 'high', show_glow_blobs: true, show_particles: true, card_border_radius: 28 },
+    active_preset: 'sakura'
+  },
+  sunset: {
+    colors: {
+      primary_accent: '25, 95%, 55%',
+      secondary_accent: '45, 100%, 52%',
+      background: '#1a0e05',
+      text_primary: '#ffffff',
+      text_secondary: '#d4b896'
+    },
+    typography: { display_font: 'Sora', body_font: 'Roboto' },
+    effects: { glass_intensity: 'medium', show_glow_blobs: true, show_particles: false, card_border_radius: 20 },
+    active_preset: 'sunset'
+  },
+  forest: {
+    colors: {
+      primary_accent: '145, 70%, 45%',
+      secondary_accent: '50, 80%, 55%',
+      background: '#0a150d',
+      text_primary: '#f0fff0',
+      text_secondary: '#a8c8a8'
+    },
+    typography: { display_font: 'Montserrat', body_font: 'Source Sans 3' },
+    effects: { glass_intensity: 'low', show_glow_blobs: true, show_particles: false, card_border_radius: 16 },
+    active_preset: 'forest'
+  },
+  minimal_light: {
+    colors: {
+      primary_accent: '250, 60%, 55%',
+      secondary_accent: '210, 50%, 50%',
+      background: '#f8f9fa',
+      text_primary: '#1a1a2e',
+      text_secondary: '#4a4a6a'
+    },
+    typography: { display_font: 'Poppins', body_font: 'Lato' },
+    effects: { glass_intensity: 'low', show_glow_blobs: false, show_particles: false, card_border_radius: 12 },
+    active_preset: 'minimal_light'
+  }
+};
+
 // Middlewares
 app.use(cors());
 app.use(express.json());
@@ -115,7 +191,16 @@ app.get('/api/portfolio', async (req, res) => {
     const gallery = [];
     gallerySnap.forEach(doc => gallery.push(doc.data()));
 
-    res.json({ profile, timeline, skills, events, gallery });
+    // Fetch theme settings
+    const themeSnap = await db.collection('theme_settings').doc('current').get();
+    let theme = null;
+    if (themeSnap.exists) {
+      theme = themeSnap.data();
+    } else {
+      theme = THEME_PRESETS.deep_space;
+    }
+
+    res.json({ profile, timeline, skills, events, gallery, theme });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -272,7 +357,6 @@ app.put('/api/admin/profile', authenticateToken, async (req, res) => {
   }
 });
 
-// 4. IMAGE UPLOAD ENDPOINT (Deploys to Firebase Cloud Storage)
 app.post('/api/admin/upload', authenticateToken, (req, res) => {
   upload.single('image')(req, res, async (err) => {
     if (err) {
@@ -286,23 +370,24 @@ app.post('/api/admin/upload', authenticateToken, (req, res) => {
       const bucket = admin.storage().bucket();
       const uniqueFilename = `${crypto.randomUUID()}${path.extname(req.file.originalname)}`;
       const fileRef = bucket.file(`uploads/${uniqueFilename}`);
+      const downloadToken = crypto.randomUUID();
 
-      // Save to Firebase Storage bucket
+      // Save to Firebase Storage bucket with custom metadata download token
       await fileRef.save(req.file.buffer, {
         metadata: {
           contentType: req.file.mimetype,
-        },
-        public: true,
+          metadata: {
+            firebaseStorageDownloadTokens: downloadToken
+          }
+        }
       });
 
-      // Construct public download URL
-      const publicUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(`uploads/${uniqueFilename}`)}?alt=media`;
+      // Construct public download URL using downloadToken
+      const publicUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(`uploads/${uniqueFilename}`)}?alt=media&token=${downloadToken}`;
       res.json({ image_url: publicUrl });
     } catch (uploadError) {
-      // Local fallback in case Firebase Storage is not enabled yet
-      console.error('Firebase Storage upload failed, falling back to local simulation:', uploadError.message);
-      const simulatedUrl = `https://images.unsplash.com/photo-1561557944-6e7860d1a7eb?auto=format&fit=crop&w=800&q=80`;
-      res.json({ image_url: simulatedUrl });
+      console.error('Firebase Storage upload failed:', uploadError);
+      res.status(500).json({ error: `Firebase Cloud Storage upload failed: ${uploadError.message}` });
     }
   });
 });
@@ -547,7 +632,46 @@ app.delete('/api/admin/gallery/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// START SERVER (Dual mode support for local runtime & Cloud Functions)
+// 9. THEME SETTINGS
+
+// Pre-built theme presets - moved to top
+
+// GET current theme (public — no auth)
+app.get('/api/theme', async (req, res) => {
+  try {
+    const themeDoc = await db.collection('theme_settings').doc('current').get();
+    if (themeDoc.exists) {
+      res.json(themeDoc.data());
+    } else {
+      // Return default preset if no theme saved yet
+      res.json(THEME_PRESETS.deep_space);
+    }
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET all presets (public — for admin UI preset picker)
+app.get('/api/theme/presets', async (req, res) => {
+  res.json(THEME_PRESETS);
+});
+
+// PUT save theme (admin only)
+app.put('/api/admin/theme', authenticateToken, async (req, res) => {
+  const themeData = req.body;
+  try {
+    // Validate required fields
+    if (!themeData.colors || !themeData.typography || !themeData.effects) {
+      return res.status(400).json({ error: 'Theme must include colors, typography, and effects.' });
+    }
+    await db.collection('theme_settings').doc('current').set(themeData);
+    res.json({ message: 'Theme saved successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
 if (require.main === module) {
   const { seedDatabase } = require('./db');
   seedDatabase().then(() => {

@@ -5,6 +5,25 @@ const API_URL = window.location.hostname === 'localhost' || window.location.host
   ? 'http://localhost:5000'
   : '';
 
+const DEFAULT_THEME = {
+  colors: { primary_accent: '325, 100%, 58%', secondary_accent: '180, 100%, 48%', background: '#0c071d', text_primary: '#ffffff', text_secondary: '#c8bde0' },
+  typography: { display_font: 'Outfit', body_font: 'Inter' },
+  effects: { glass_intensity: 'medium', show_glow_blobs: true, show_particles: true, card_border_radius: 24 },
+  active_preset: 'deep_space'
+};
+
+const PRESET_META = [
+  { key: 'deep_space', label: '🌌 Deep Space', desc: 'Purple + pink/cyan neon' },
+  { key: 'ocean_night', label: '🌊 Ocean Night', desc: 'Navy + teal/blue' },
+  { key: 'sakura', label: '🌸 Sakura', desc: 'Cherry blossom pink' },
+  { key: 'sunset', label: '🔥 Sunset', desc: 'Warm orange/amber' },
+  { key: 'forest', label: '🍀 Forest', desc: 'Emerald + gold' },
+  { key: 'minimal_light', label: '⚪ Minimal Light', desc: 'Clean light mode' }
+];
+
+const DISPLAY_FONTS = ['Outfit', 'Playfair Display', 'Space Grotesk', 'Poppins', 'Montserrat', 'Sora'];
+const BODY_FONTS = ['Inter', 'Roboto', 'DM Sans', 'Nunito', 'Source Sans 3', 'Lato'];
+
 const getFullAssetUrl = (url) => {
   if (!url) return '';
   if (url.startsWith('http://') || url.startsWith('https://')) return url;
@@ -45,6 +64,10 @@ function App() {
   const [galleryForm, setGalleryForm] = useState({ youtube_id: '', title: '', order_index: 0 });
   const [usersList, setUsersList] = useState([]);
   const [usersForm, setUsersForm] = useState({ username: '', password: '' });
+
+  // Theme state
+  const [themeForm, setThemeForm] = useState(JSON.parse(JSON.stringify(DEFAULT_THEME)));
+  const [themePresets, setThemePresets] = useState({});
 
   // Handle API Fetch wrapper with automatic auth error interception
   const apiCall = async (endpoint, options = {}) => {
@@ -106,10 +129,57 @@ function App() {
     }
   };
 
+  const fetchTheme = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/theme`);
+      if (res.ok) {
+        const data = await res.json();
+        setThemeForm(data);
+      }
+    } catch (err) {
+      console.error('Could not fetch theme:', err.message);
+    }
+  };
+
+  const fetchPresets = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/theme/presets`);
+      if (res.ok) {
+        const data = await res.json();
+        setThemePresets(data);
+      }
+    } catch (err) {
+      console.error('Could not fetch presets:', err.message);
+    }
+  };
+
+  const saveTheme = async () => {
+    try {
+      await apiCall('/api/admin/theme', {
+        method: 'PUT',
+        body: JSON.stringify(themeForm)
+      });
+      setSuccess('Theme saved successfully! Public site will reflect changes on next visit.');
+    } catch (err) {}
+  };
+
+  const applyPreset = (presetKey) => {
+    const preset = themePresets[presetKey];
+    if (preset) {
+      setThemeForm(JSON.parse(JSON.stringify(preset)));
+    }
+  };
+
+  const resetTheme = () => {
+    setThemeForm(JSON.parse(JSON.stringify(DEFAULT_THEME)));
+  };
+
   useEffect(() => {
     if (token) {
       fetchCMSData();
       fetchUsers();
+      fetchTheme();
+      fetchPresets();
     }
   }, [token]);
 
@@ -153,35 +223,53 @@ function App() {
     } catch (err) {}
   };
 
-  // --- Image Upload Handler ---
-  const handleImageUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
+  // --- Reusable Image Upload Helper ---
+  const uploadImageFile = async (file) => {
     const formData = new FormData();
     formData.append('image', file);
+    
+    const response = await fetch(`${API_URL}/api/admin/upload`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      body: formData
+    });
 
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Upload failed');
+    }
+
+    const result = await response.json();
+    return result.image_url;
+  };
+
+  const handleEventImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
     try {
       setError('');
-      const response = await fetch(`${API_URL}/api/admin/upload`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        body: formData
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Upload failed');
-      }
-
-      const result = await response.json();
-      // Update form image reference path
-      setEventsForm(prev => ({ ...prev, image_url: result.image_url }));
-      setSuccess('Image uploaded successfully.');
+      setSuccess('');
+      const imageUrl = await uploadImageFile(file);
+      setEventsForm(prev => ({ ...prev, image_url: imageUrl }));
+      setSuccess('Event cover image uploaded successfully.');
     } catch (err) {
       setError(`Image upload error: ${err.message}`);
+    }
+  };
+
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      setError('');
+      setSuccess('');
+      const imageUrl = await uploadImageFile(file);
+      setProfileForm(prev => ({ ...prev, avatar: imageUrl }));
+      setSuccess('Avatar image uploaded successfully.');
+    } catch (err) {
+      setError(`Avatar upload error: ${err.message}`);
     }
   };
 
@@ -332,6 +420,9 @@ function App() {
           <li className={`menu-item ${activePanel === 'gallery' ? 'active' : ''}`}>
             <button onClick={() => setActivePanel('gallery')}>Behind the Scenes</button>
           </li>
+          <li className={`menu-item ${activePanel === 'theme' ? 'active' : ''}`}>
+            <button onClick={() => setActivePanel('theme')}>Theme Settings</button>
+          </li>
           <li className={`menu-item ${activePanel === 'users' ? 'active' : ''}`}>
             <button onClick={() => setActivePanel('users')}>Manage Accounts</button>
           </li>
@@ -350,6 +441,7 @@ function App() {
             {activePanel === 'skills' && 'Skills Configuration'}
             {activePanel === 'events' && 'Events & Awards Configuration'}
             {activePanel === 'gallery' && 'Video Gallery Configuration'}
+            {activePanel === 'theme' && 'Theme & Appearance Settings'}
             {activePanel === 'users' && 'User Accounts Configuration'}
           </h1>
         </div>
@@ -399,6 +491,29 @@ function App() {
               </div>
 
               <h3 style={{ margin: '40px 0 20px 0', color: 'var(--color-pink)' }}>About Me Section</h3>
+              <div className="form-group">
+                <label className="form-label">Upload Profile Avatar (About Me Image)</label>
+                <div className="upload-widget">
+                  {profileForm.avatar && (
+                    <div 
+                      className="upload-preview" 
+                      style={{ backgroundImage: `url('${getFullAssetUrl(profileForm.avatar)}')` }}
+                    ></div>
+                  )}
+                  <div className="upload-btn-wrapper">
+                    <button className="btn-secondary" type="button">Upload File</button>
+                    <input type="file" accept="image/*" onChange={handleAvatarUpload} />
+                  </div>
+                  <input 
+                    type="text" 
+                    className="form-control" 
+                    placeholder="Or input image URL" 
+                    style={{ flex: 1 }}
+                    value={profileForm.avatar || ''}
+                    onChange={e => setProfileForm({ ...profileForm, avatar: e.target.value })}
+                  />
+                </div>
+              </div>
               <div className="form-group">
                 <label className="form-label">About Biography - Paragraph 1</label>
                 <textarea 
@@ -639,6 +754,199 @@ function App() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* THEME SETTINGS VIEW */}
+        {activePanel === 'theme' && (
+          <div className="panel-card">
+            {/* Section A: Preset Themes */}
+            <h3 style={{ color: 'var(--color-pink)', marginBottom: '16px' }}>Quick Presets</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '12px', marginBottom: '36px' }}>
+              {PRESET_META.map(p => (
+                <button
+                  key={p.key}
+                  onClick={() => applyPreset(p.key)}
+                  style={{
+                    background: themeForm.active_preset === p.key
+                      ? 'linear-gradient(135deg, rgba(236,72,153,0.25), rgba(139,92,246,0.25))'
+                      : 'rgba(255,255,255,0.04)',
+                    border: themeForm.active_preset === p.key
+                      ? '2px solid rgba(236,72,153,0.6)'
+                      : '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: '14px',
+                    padding: '16px 14px',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    transition: 'all 0.2s',
+                    color: '#fff'
+                  }}
+                >
+                  <div style={{ fontSize: '1.3rem', marginBottom: '6px' }}>{p.label}</div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.3 }}>{p.desc}</div>
+                  {themePresets[p.key] && (
+                    <div style={{ display: 'flex', gap: '4px', marginTop: '10px' }}>
+                      {['primary_accent', 'secondary_accent'].map(c => (
+                        <div key={c} style={{
+                          width: '20px', height: '20px', borderRadius: '50%',
+                          background: `hsl(${themePresets[p.key].colors[c]})`,
+                          border: '2px solid rgba(255,255,255,0.15)'
+                        }} />
+                      ))}
+                      <div style={{
+                        width: '20px', height: '20px', borderRadius: '50%',
+                        background: themePresets[p.key].colors.background,
+                        border: '2px solid rgba(255,255,255,0.15)'
+                      }} />
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+
+            {/* Section B: Color Palette */}
+            <h3 style={{ color: 'var(--color-pink)', marginBottom: '16px' }}>Color Palette</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px', marginBottom: '36px' }}>
+              {[
+                { key: 'primary_accent', label: 'Primary Accent', hint: 'Buttons, links, gradients (HSL values)', isHsl: true },
+                { key: 'secondary_accent', label: 'Secondary Accent', hint: 'Subtitles, highlights (HSL values)', isHsl: true },
+                { key: 'background', label: 'Background Color', hint: 'Page background (hex)', isHsl: false },
+                { key: 'text_primary', label: 'Text Primary', hint: 'Main text color (hex)', isHsl: false },
+                { key: 'text_secondary', label: 'Text Secondary', hint: 'Body text color (hex)', isHsl: false }
+              ].map(c => (
+                <div key={c.key} className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">{c.label}</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{
+                      width: '36px', height: '36px', borderRadius: '10px', flexShrink: 0,
+                      background: c.isHsl ? `hsl(${themeForm.colors?.[c.key] || ''})` : (themeForm.colors?.[c.key] || '#000'),
+                      border: '2px solid rgba(255,255,255,0.15)',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
+                    }} />
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder={c.hint}
+                      value={themeForm.colors?.[c.key] || ''}
+                      onChange={e => setThemeForm(prev => ({
+                        ...prev,
+                        colors: { ...prev.colors, [c.key]: e.target.value },
+                        active_preset: 'custom'
+                      }))}
+                      style={{ flex: 1 }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Section C: Typography */}
+            <h3 style={{ color: 'var(--color-pink)', marginBottom: '16px' }}>Typography</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px', marginBottom: '36px' }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Display Font (Headings, Nav)</label>
+                <select
+                  className="form-control"
+                  style={{ background: 'rgba(0,0,0,0.5)' }}
+                  value={themeForm.typography?.display_font || 'Outfit'}
+                  onChange={e => setThemeForm(prev => ({
+                    ...prev,
+                    typography: { ...prev.typography, display_font: e.target.value },
+                    active_preset: 'custom'
+                  }))}
+                >
+                  {DISPLAY_FONTS.map(f => <option key={f} value={f}>{f}</option>)}
+                </select>
+              </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Body Font (Paragraphs)</label>
+                <select
+                  className="form-control"
+                  style={{ background: 'rgba(0,0,0,0.5)' }}
+                  value={themeForm.typography?.body_font || 'Inter'}
+                  onChange={e => setThemeForm(prev => ({
+                    ...prev,
+                    typography: { ...prev.typography, body_font: e.target.value },
+                    active_preset: 'custom'
+                  }))}
+                >
+                  {BODY_FONTS.map(f => <option key={f} value={f}>{f}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {/* Section D: Visual Effects */}
+            <h3 style={{ color: 'var(--color-pink)', marginBottom: '16px' }}>Visual Effects</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px', marginBottom: '36px' }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Glass Effect Intensity</label>
+                <select
+                  className="form-control"
+                  style={{ background: 'rgba(0,0,0,0.5)' }}
+                  value={themeForm.effects?.glass_intensity || 'medium'}
+                  onChange={e => setThemeForm(prev => ({
+                    ...prev,
+                    effects: { ...prev.effects, glass_intensity: e.target.value },
+                    active_preset: 'custom'
+                  }))}
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Card Border Radius ({themeForm.effects?.card_border_radius || 24}px)</label>
+                <input
+                  type="range"
+                  min="4"
+                  max="32"
+                  className="form-control"
+                  value={themeForm.effects?.card_border_radius || 24}
+                  onChange={e => setThemeForm(prev => ({
+                    ...prev,
+                    effects: { ...prev.effects, card_border_radius: Number(e.target.value) },
+                    active_preset: 'custom'
+                  }))}
+                />
+              </div>
+              <div className="form-group" style={{ marginBottom: 0, display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                  <input
+                    type="checkbox"
+                    checked={themeForm.effects?.show_glow_blobs ?? true}
+                    onChange={e => setThemeForm(prev => ({
+                      ...prev,
+                      effects: { ...prev.effects, show_glow_blobs: e.target.checked },
+                      active_preset: 'custom'
+                    }))}
+                    style={{ width: '18px', height: '18px', accentColor: 'hsl(325, 100%, 58%)' }}
+                  />
+                  Show Ambient Glow Blobs
+                </label>
+              </div>
+              <div className="form-group" style={{ marginBottom: 0, display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                  <input
+                    type="checkbox"
+                    checked={themeForm.effects?.show_particles ?? true}
+                    onChange={e => setThemeForm(prev => ({
+                      ...prev,
+                      effects: { ...prev.effects, show_particles: e.target.checked },
+                      active_preset: 'custom'
+                    }))}
+                    style={{ width: '18px', height: '18px', accentColor: 'hsl(325, 100%, 58%)' }}
+                  />
+                  Show Floating Particles
+                </label>
+              </div>
+            </div>
+
+            {/* Section E: Actions */}
+            <div style={{ display: 'flex', gap: '12px', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+              <button className="btn-primary" onClick={saveTheme} style={{ flex: 1 }}>Save Theme</button>
+              <button className="btn-secondary" onClick={resetTheme}>Reset to Default</button>
+            </div>
           </div>
         )}
 
@@ -893,7 +1201,7 @@ function App() {
                       )}
                       <div className="upload-btn-wrapper">
                         <button className="btn-secondary" type="button">Upload File</button>
-                        <input type="file" accept="image/*" onChange={handleImageUpload} />
+                        <input type="file" accept="image/*" onChange={handleEventImageUpload} />
                       </div>
                       <input 
                         type="text" 

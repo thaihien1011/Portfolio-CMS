@@ -66,11 +66,12 @@ function App() {
           skills: resJson.skills && resJson.skills.length ? resJson.skills : fallbackData.skills,
           events: resJson.events && resJson.events.length ? resJson.events : fallbackData.events,
           gallery: resJson.gallery && resJson.gallery.length ? resJson.gallery : fallbackData.gallery,
+          theme: resJson.theme || null,
         };
         setData(mergedData);
       } catch (err) {
         console.warn('Backend API is unreachable. Falling back to local offline details.', err);
-        setData(fallbackData);
+        setData({ ...fallbackData, theme: null });
       } finally {
         setLoading(false);
       }
@@ -78,6 +79,107 @@ function App() {
 
     fetchData();
   }, []);
+
+  // Apply theme settings dynamically when loaded from API
+  useEffect(() => {
+    if (!data) return;
+    
+    // Helper to determine if a color is light
+    const isColorLight = (hexColor) => {
+      if (!hexColor || !hexColor.startsWith('#')) return false;
+      const hex = hexColor.replace('#', '');
+      if (hex.length !== 6) return false;
+      const r = parseInt(hex.substring(0, 2), 16);
+      const g = parseInt(hex.substring(2, 4), 16);
+      const b = parseInt(hex.substring(4, 6), 16);
+      const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+      return brightness > 150; // true if light
+    };
+
+    // Current theme or fallback default
+    const theme = data.theme || {
+      colors: {
+        primary_accent: '325, 100%, 58%',
+        secondary_accent: '180, 100%, 48%',
+        background: '#0c071d',
+        text_primary: '#ffffff',
+        text_secondary: '#c8bde0'
+      },
+      typography: { display_font: 'Outfit', body_font: 'Inter' },
+      effects: { glass_intensity: 'medium', show_glow_blobs: true, show_particles: true, card_border_radius: 24 }
+    };
+
+    const root = document.documentElement;
+
+    // 1. Apply Colors
+    if (theme.colors) {
+      if (theme.colors.background) root.style.setProperty('--bg-color', theme.colors.background);
+      if (theme.colors.text_primary) root.style.setProperty('--text-primary', theme.colors.text_primary);
+      if (theme.colors.text_secondary) root.style.setProperty('--text-secondary', theme.colors.text_secondary);
+      
+      // Accents
+      if (theme.colors.primary_accent) {
+        root.style.setProperty('--color-pink', theme.colors.primary_accent);
+        root.style.setProperty('--color-purple', theme.colors.primary_accent);
+      }
+      if (theme.colors.secondary_accent) root.style.setProperty('--color-cyan', theme.colors.secondary_accent);
+      
+      // Muted / Glass variables based on brightness
+      const isLight = isColorLight(theme.colors.background);
+      if (isLight) {
+        root.style.setProperty('--text-muted', '#6a6a8a');
+        root.style.setProperty('--glass-border', 'rgba(0, 0, 0, 0.08)');
+        if (theme.effects?.glass_intensity === 'low') {
+          root.style.setProperty('--glass-bg', 'rgba(255, 255, 255, 0.3)');
+          root.style.setProperty('--glass-blur', '4px');
+        } else if (theme.effects?.glass_intensity === 'high') {
+          root.style.setProperty('--glass-bg', 'rgba(255, 255, 255, 0.85)');
+          root.style.setProperty('--glass-blur', '32px');
+        } else {
+          root.style.setProperty('--glass-bg', 'rgba(255, 255, 255, 0.65)');
+          root.style.setProperty('--glass-blur', '16px');
+        }
+      } else {
+        root.style.setProperty('--text-muted', '#8a7c9f');
+        root.style.setProperty('--glass-border', 'rgba(167, 139, 250, 0.12)');
+        if (theme.effects?.glass_intensity === 'low') {
+          root.style.setProperty('--glass-bg', 'rgba(22, 11, 41, 0.25)');
+          root.style.setProperty('--glass-blur', '4px');
+        } else if (theme.effects?.glass_intensity === 'high') {
+          root.style.setProperty('--glass-bg', 'rgba(22, 11, 41, 0.75)');
+          root.style.setProperty('--glass-blur', '32px');
+        } else {
+          root.style.setProperty('--glass-bg', 'rgba(22, 11, 41, 0.45)');
+          root.style.setProperty('--glass-blur', '16px');
+        }
+      }
+    }
+
+    // 2. Apply Typography
+    if (theme.typography) {
+      const displayFont = theme.typography.display_font || 'Outfit';
+      const bodyFont = theme.typography.body_font || 'Inter';
+
+      root.style.setProperty('--font-display', `'${displayFont}', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`);
+      root.style.setProperty('--font-body', `'${bodyFont}', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`);
+
+      // Dynamic Font Loading from Google Fonts
+      const fontId = 'dynamic-google-fonts';
+      let fontLink = document.getElementById(fontId);
+      if (!fontLink) {
+        fontLink = document.createElement('link');
+        fontLink.id = fontId;
+        fontLink.rel = 'stylesheet';
+        document.head.appendChild(fontLink);
+      }
+      fontLink.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(displayFont)}:wght@300;400;500;600;700;800&family=${encodeURIComponent(bodyFont)}:wght@300;400;500;600;700&display=swap`;
+    }
+
+    // 3. Apply Card Border Radius
+    if (theme.effects && theme.effects.card_border_radius !== undefined) {
+      root.style.setProperty('--card-border-radius', `${theme.effects.card_border_radius}px`);
+    }
+  }, [data]);
 
   // Update document title and meta properties dynamically based on database profile info
   useEffect(() => {
@@ -190,9 +292,42 @@ function App() {
     return (
       <div className="home-theme">
         {/* Glow Blobs */}
-        <div className="glow-blob blob-purple" style={{ top: '8%', left: '3%' }}></div>
-        <div className="glow-blob blob-blue" style={{ top: '28%', right: '5%' }}></div>
-        <div className="glow-blob blob-pink" style={{ bottom: '12%', left: '8%' }}></div>
+        {(!data?.theme || data.theme.effects?.show_glow_blobs !== false) && (
+          <>
+            <div className="glow-blob blob-purple" style={{ top: '8%', left: '3%' }}></div>
+            <div className="glow-blob blob-blue" style={{ top: '28%', right: '5%' }}></div>
+            <div className="glow-blob blob-pink" style={{ bottom: '12%', left: '8%' }}></div>
+          </>
+        )}
+
+        {/* Ambient Particles */}
+        {data?.theme?.effects?.show_particles && (
+          <div className="particles-container" style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 1, overflow: 'hidden' }}>
+            {Array.from({ length: 15 }).map((_, i) => {
+              const delay = i * 0.8;
+              const left = (i * 7) % 100;
+              const top = (i * 9) % 100;
+              const size = (i * 3) % 8 + 4;
+              return (
+                <div
+                  key={i}
+                  className="floating-particle"
+                  style={{
+                    left: `${left}%`,
+                    top: `${top}%`,
+                    width: `${size}px`,
+                    height: `${size}px`,
+                    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+                    borderRadius: '50%',
+                    boxShadow: '0 0 10px rgba(255, 255, 255, 0.3)',
+                    animationDelay: `${delay}s`,
+                    animationDuration: `${6 + (i % 4)}s`
+                  }}
+                ></div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Header */}
         <header id="header">
@@ -428,7 +563,9 @@ function App() {
               )}
               {profile.tiktok_url && (
                 <a href={profile.tiktok_url} target="_blank" rel="noopener noreferrer" className="social-btn btn-tiktok" aria-label="TikTok">
-                  <i className="fa fa-music"></i>
+                  <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.02 1.59 4.23.94 1.15 2.25 1.95 3.68 2.27v3.91a8.94 8.94 0 0 1-5.18-1.74v7.41c.08 2.02-.75 4.02-2.18 5.43-1.6 1.63-3.95 2.53-6.26 2.45-2.27-.03-4.51-.97-5.99-2.7a9.23 9.23 0 0 1-2.09-6c-.03-2.61.99-5.18 2.87-7a9.14 9.14 0 0 1 6.84-2.73c.01 1.9-.02 3.8.01 5.7-.7-.25-1.46-.22-2.13.09-.72.32-1.31.9-1.62 1.62-.51 1.05-.18 2.41.77 3.09.73.55 1.69.66 2.51.3.93-.38 1.55-1.32 1.57-2.33v-10.5c.02-2.58.01-5.16.02-7.74z"/>
+                  </svg>
                 </a>
               )}
               {profile.youtube_url && (
@@ -474,6 +611,43 @@ function App() {
   // --- RENDER DETAILED EVENTS CHRONOLOGICAL VIEW ---
   return (
     <div className="events-theme">
+      {/* Glow Blobs */}
+      {(!data?.theme || data.theme.effects?.show_glow_blobs !== false) && (
+        <>
+          <div className="glow-blob blob-purple" style={{ top: '8%', left: '3%' }}></div>
+          <div className="glow-blob blob-blue" style={{ top: '28%', right: '5%' }}></div>
+          <div className="glow-blob blob-pink" style={{ bottom: '12%', left: '8%' }}></div>
+        </>
+      )}
+
+      {/* Ambient Particles */}
+      {data?.theme?.effects?.show_particles && (
+        <div className="particles-container" style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 1, overflow: 'hidden' }}>
+          {Array.from({ length: 15 }).map((_, i) => {
+            const delay = i * 0.8;
+            const left = (i * 7) % 100;
+            const top = (i * 9) % 100;
+            const size = (i * 3) % 8 + 4;
+            return (
+              <div
+                key={i}
+                className="floating-particle"
+                style={{
+                  left: `${left}%`,
+                  top: `${top}%`,
+                  width: `${size}px`,
+                  height: `${size}px`,
+                  backgroundColor: 'rgba(255, 255, 255, 0.4)',
+                  borderRadius: '50%',
+                  boxShadow: '0 0 10px rgba(255, 255, 255, 0.3)',
+                  animationDelay: `${delay}s`,
+                  animationDuration: `${6 + (i % 4)}s`
+                }}
+              ></div>
+            );
+          })}
+        </div>
+      )}
       {/* Navbar */}
       <nav className="navbar navbar-expand-lg navbar-dark fixed-top">
         <div className="container">
@@ -559,7 +733,15 @@ function App() {
             <div className="col-md-4">
               <ul className="social-buttons">
                 {profile.instagram_url && <li><a href={profile.instagram_url} target="_blank" aria-label="Instagram"><i className="fa fa-instagram"></i></a></li>}
-                {profile.tiktok_url && <li><a href={profile.tiktok_url} target="_blank" aria-label="TikTok"><i className="fa fa-music"></i></a></li>}
+                {profile.tiktok_url && (
+                  <li>
+                    <a href={profile.tiktok_url} target="_blank" aria-label="TikTok">
+                      <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: '16px', height: '16px' }}>
+                        <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.02 1.59 4.23.94 1.15 2.25 1.95 3.68 2.27v3.91a8.94 8.94 0 0 1-5.18-1.74v7.41c.08 2.02-.75 4.02-2.18 5.43-1.6 1.63-3.95 2.53-6.26 2.45-2.27-.03-4.51-.97-5.99-2.7a9.23 9.23 0 0 1-2.09-6c-.03-2.61.99-5.18 2.87-7a9.14 9.14 0 0 1 6.84-2.73c.01 1.9-.02 3.8.01 5.7-.7-.25-1.46-.22-2.13.09-.72.32-1.31.9-1.62 1.62-.51 1.05-.18 2.41.77 3.09.73.55 1.69.66 2.51.3.93-.38 1.55-1.32 1.57-2.33v-10.5c.02-2.58.01-5.16.02-7.74z"/>
+                      </svg>
+                    </a>
+                  </li>
+                )}
                 {profile.threads_url && <li><a href={profile.threads_url} target="_blank" aria-label="Threads"><i className="fa fa-at"></i></a></li>}
                 {profile.facebook_url && <li><a href={profile.facebook_url} target="_blank" aria-label="Facebook"><i className="fa fa-facebook"></i></a></li>}
                 {profile.youtube_url && <li><a href={profile.youtube_url} target="_blank" aria-label="YouTube"><i className="fa fa-youtube-play"></i></a></li>}

@@ -4,19 +4,19 @@
 
 /* Design Tokens */
 :root {
-  --bg-black: #000000;
-  --bg-card: #111111;
-  --bg-card-hover: #161616;
-  --color-green: #22c55e; /* TNTN Neon Green */
-  --color-green-glow: rgba(34, 197, 94, 0.25);
-  --text-white: #ffffff;
-  --text-gray: #a3a3a3;
-  --text-muted: #666666;
-  --border-color: rgba(255, 255, 255, 0.08);
-  --border-color-hover: rgba(34, 197, 94, 0.4);
+  --bg-black: var(--bg-color, #000000);
+  --bg-card: var(--glass-bg, rgba(22, 11, 41, 0.45));
+  --bg-card-hover: rgba(255, 255, 255, 0.05);
+  --color-green: hsl(var(--color-pink, 325, 100%, 58%)); /* Dynamic neon color */
+  --color-green-glow: rgba(255, 255, 255, 0.1);
+  --text-white: var(--text-primary, #ffffff);
+  --text-gray: var(--text-secondary, #c8bde0);
+  --text-muted: var(--text-muted, #8a7c9f);
+  --border-color: var(--glass-border, rgba(167, 139, 250, 0.12));
+  --border-color-hover: hsl(var(--color-pink, 325, 100%, 58%));
 
-  --font-display: 'Oswald', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-body: 'Montserrat', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: var(--font-display, 'Oswald', -apple-system, BlinkMacSystemFont, sans-serif);
+  --font-body: var(--font-body, 'Montserrat', -apple-system, BlinkMacSystemFont, sans-serif);
 }
 
 /* Base Styles */
