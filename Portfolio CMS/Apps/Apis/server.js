@@ -15,12 +15,13 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const JWT_SECRET = process.env.JWT_SECRET || 'cera_nguyen_secret_2026_key_for_jwt_auth_cms';
 const PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'portfolio-cms-fd55d';
+const STORAGE_BUCKET = process.env.FIREBASE_STORAGE_BUCKET || `${PROJECT_ID}.firebasestorage.app`;
 
 // Initialize Firebase Admin SDK
 if (admin.apps.length === 0) {
   admin.initializeApp({
     projectId: PROJECT_ID,
-    storageBucket: `${PROJECT_ID}.appspot.com`
+    storageBucket: STORAGE_BUCKET
   });
 }
 
