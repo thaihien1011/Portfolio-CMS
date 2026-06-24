@@ -107,7 +107,7 @@ app.use(cors());
 app.use(express.json());
 
 // Set up public static uploads route (local fallback)
-const uploadDir = '/tmp'; // Use tmp for serverless-safe writing if needed
+app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 
 // Configure Multer Storage (local memory storage for forwarding to Firebase Storage)
 const storage = multer.memoryStorage();
@@ -366,9 +366,10 @@ app.post('/api/admin/upload', authenticateToken, (req, res) => {
       return res.status(400).json({ error: 'No image file uploaded' });
     }
 
+    const uniqueFilename = `${crypto.randomUUID()}${path.extname(req.file.originalname)}`;
+
     try {
       const bucket = admin.storage().bucket();
-      const uniqueFilename = `${crypto.randomUUID()}${path.extname(req.file.originalname)}`;
       const fileRef = bucket.file(`uploads/${uniqueFilename}`);
       const downloadToken = crypto.randomUUID();
 
@@ -386,8 +387,22 @@ app.post('/api/admin/upload', authenticateToken, (req, res) => {
       const publicUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(`uploads/${uniqueFilename}`)}?alt=media&token=${downloadToken}`;
       res.json({ image_url: publicUrl });
     } catch (uploadError) {
-      console.error('Firebase Storage upload failed:', uploadError);
-      res.status(500).json({ error: `Firebase Cloud Storage upload failed: ${uploadError.message}` });
+      console.warn('Firebase Storage upload failed, falling back to local storage:', uploadError.message);
+      
+      try {
+        // Save to local filesystem
+        const localUploadsDir = path.join(__dirname, 'public/uploads');
+        fs.mkdirSync(localUploadsDir, { recursive: true });
+        
+        const localFilePath = path.join(localUploadsDir, uniqueFilename);
+        fs.writeFileSync(localFilePath, req.file.buffer);
+        
+        // Return local relative URL (served via express.static on /uploads)
+        res.json({ image_url: `/uploads/${uniqueFilename}` });
+      } catch (localError) {
+        console.error('Local file write failed:', localError);
+        res.status(500).json({ error: `Image upload failed on both cloud and local storage: ${localError.message}` });
+      }
     }
   });
 });
