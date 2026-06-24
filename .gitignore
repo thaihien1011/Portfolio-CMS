@@ -26,3 +26,7 @@ lerna-debug.log*
 .DS_Store
 **/.DS_Store
 Thumbs.db
+
+# Local Uploads Fallback
+**/Apps/Apis/public/uploads/
+
