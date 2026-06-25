@@ -38,7 +38,7 @@ const renderLocale = (field) => {
   return String(field);
 };
 
-function TranslatableField({ label, value, onChange, type = 'text', placeholder = '', apiCall, setError }) {
+function TranslatableField({ label, value, onChange, type = 'text', placeholder = '', apiCall, setError, setSuccess }) {
   const [translating, setTranslating] = React.useState(false);
 
   const valVi = typeof value === 'object' && value ? (value.vi || '') : (value || '');
@@ -62,6 +62,7 @@ function TranslatableField({ label, value, onChange, type = 'text', placeholder 
       });
       if (res && res.translatedText) {
         onChange({ vi: valVi, en: res.translatedText });
+        if (setSuccess) setSuccess('Auto-translated successfully!');
       }
     } catch (err) {
       setError(`Auto-translation error: ${err.message}`);
@@ -161,6 +162,29 @@ function App() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [currentUser, setCurrentUser] = useState(localStorage.getItem('portfolio_admin_username') || '');
+
+  // Custom Toast notifications manager
+  const [toasts, setToasts] = useState([]);
+
+  const addToast = (message, type = 'success') => {
+    const id = Date.now() + Math.random().toString(36).substring(2, 9);
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 4000);
+  };
+
+  useEffect(() => {
+    if (success) {
+      addToast(success, 'success');
+    }
+  }, [success]);
+
+  useEffect(() => {
+    if (error) {
+      addToast(error, 'error');
+    }
+  }, [error]);
 
   // Main portfolio data (for rendering tables and inputs)
   const [portfolioData, setPortfolioData] = useState({
@@ -319,6 +343,7 @@ function App() {
         setCurrentUser(res.username);
         setUsername('');
         setPassword('');
+        setSuccess('Logged in successfully!');
       }
     } catch (err) {}
   };
@@ -329,6 +354,7 @@ function App() {
     setToken('');
     setCurrentUser('');
     setPortfolioData({ profile: {}, timeline: [], skills: [], events: [], gallery: [] });
+    setSuccess('Logged out successfully.');
   };
 
   // --- Profile Settings save handler ---
@@ -600,6 +626,7 @@ function App() {
                 onChange={val => setProfileForm({ ...profileForm, hero_title: val })}
                 apiCall={apiCall}
                 setError={setError}
+                setSuccess={setSuccess}
               />
               <TranslatableField 
                 label="Hero Subtitle"
@@ -607,6 +634,7 @@ function App() {
                 onChange={val => setProfileForm({ ...profileForm, hero_subtitle: val })}
                 apiCall={apiCall}
                 setError={setError}
+                setSuccess={setSuccess}
               />
               <TranslatableField 
                 label="Hero Description"
@@ -615,6 +643,7 @@ function App() {
                 onChange={val => setProfileForm({ ...profileForm, hero_description: val })}
                 apiCall={apiCall}
                 setError={setError}
+                setSuccess={setSuccess}
               />
               <div className="form-group">
                 <label className="form-label">Hero Background Image URL</label>
@@ -657,6 +686,7 @@ function App() {
                 onChange={val => setProfileForm({ ...profileForm, about_bio_p1: val })}
                 apiCall={apiCall}
                 setError={setError}
+                setSuccess={setSuccess}
               />
               <TranslatableField 
                 label="About Biography - Paragraph 2"
@@ -665,6 +695,7 @@ function App() {
                 onChange={val => setProfileForm({ ...profileForm, about_bio_p2: val })}
                 apiCall={apiCall}
                 setError={setError}
+                setSuccess={setSuccess}
               />
               <TranslatableField 
                 label="Highlight Quote"
@@ -673,6 +704,7 @@ function App() {
                 onChange={val => setProfileForm({ ...profileForm, personal_quote: val })}
                 apiCall={apiCall}
                 setError={setError}
+                setSuccess={setSuccess}
               />
 
               <h3 style={{ margin: '40px 0 20px 0', color: 'var(--color-pink)' }}>Metadata & Communication</h3>
@@ -682,6 +714,7 @@ function App() {
                 onChange={val => setProfileForm({ ...profileForm, meta_title: val })}
                 apiCall={apiCall}
                 setError={setError}
+                setSuccess={setSuccess}
               />
               <TranslatableField 
                 label="Browser Description (SEO Meta)"
@@ -690,6 +723,7 @@ function App() {
                 onChange={val => setProfileForm({ ...profileForm, meta_description: val })}
                 apiCall={apiCall}
                 setError={setError}
+                setSuccess={setSuccess}
               />
               <div className="form-group">
                 <label className="form-label">Contact Destination Email</label>
@@ -1156,6 +1190,7 @@ function App() {
                     placeholder="e.g. 2024 - Hiện tại / Grade 3 Piano"
                     apiCall={apiCall}
                     setError={setError}
+                    setSuccess={setSuccess}
                   />
                   <TranslatableField 
                     label="Title / Board"
@@ -1164,6 +1199,7 @@ function App() {
                     placeholder="e.g. Học sinh / Associated Board..."
                     apiCall={apiCall}
                     setError={setError}
+                    setSuccess={setSuccess}
                   />
                   <TranslatableField 
                     label="Subtitle / Organisation"
@@ -1172,6 +1208,7 @@ function App() {
                     placeholder="e.g. Amazing Music Center or WASS"
                     apiCall={apiCall}
                     setError={setError}
+                    setSuccess={setSuccess}
                   />
                   <TranslatableField 
                     label="Bullet Description (Use newlines for bullets)"
@@ -1181,6 +1218,7 @@ function App() {
                     placeholder="e.g. * Hỗ trợ giáo viên&#13;* Thị phạm chơi đàn"
                     apiCall={apiCall}
                     setError={setError}
+                    setSuccess={setSuccess}
                   />
                   <div className="form-group">
                     <label className="form-label">Sort Weight (Order Index)</label>
@@ -1204,6 +1242,7 @@ function App() {
                     placeholder="e.g. Kỹ năng giao tiếp"
                     apiCall={apiCall}
                     setError={setError}
+                    setSuccess={setSuccess}
                   />
                   <div className="form-group">
                     <label className="form-label">Percentage Level ({skillsForm.percentage}%)</label>
@@ -1249,6 +1288,7 @@ function App() {
                     placeholder="e.g. 05/2026 or 2025"
                     apiCall={apiCall}
                     setError={setError}
+                    setSuccess={setSuccess}
                   />
                   <div className="form-group">
                     <label className="form-label">Tag Category tabs (Comma separated)</label>
@@ -1268,6 +1308,7 @@ function App() {
                     placeholder="e.g. Tournament or Music Performance"
                     apiCall={apiCall}
                     setError={setError}
+                    setSuccess={setSuccess}
                   />
                   <TranslatableField 
                     label="Event/Award Title"
@@ -1276,6 +1317,7 @@ function App() {
                     placeholder="e.g. VEX IQ MS World Championship 2026"
                     apiCall={apiCall}
                     setError={setError}
+                    setSuccess={setSuccess}
                   />
                   <TranslatableField 
                     label="Highlight Summary (Single-sentence award tab highlight)"
@@ -1284,6 +1326,7 @@ function App() {
                     placeholder="Use **bold** highlights. Defaults to Title if empty."
                     apiCall={apiCall}
                     setError={setError}
+                    setSuccess={setSuccess}
                   />
                   <TranslatableField 
                     label="Description (Timeline body paragraph)"
@@ -1293,6 +1336,7 @@ function App() {
                     placeholder="Event detailed description..."
                     apiCall={apiCall}
                     setError={setError}
+                    setSuccess={setSuccess}
                   />
                   <TranslatableField 
                     label="Location (Optional)"
@@ -1301,6 +1345,7 @@ function App() {
                     placeholder="e.g. Dallas, Texas, USA"
                     apiCall={apiCall}
                     setError={setError}
+                    setSuccess={setSuccess}
                   />
                   <div className="form-group">
                     <label className="form-label">Upload Event cover image</label>
@@ -1410,6 +1455,20 @@ function App() {
           </div>
         </div>
       )}
+      {/* Toast Notifications Overlay Container */}
+      <div className="toast-container">
+        {toasts.map(t => (
+          <div key={t.id} className={`toast toast-${t.type}`}>
+            <span>{t.message}</span>
+            <button 
+              className="toast-close-btn" 
+              onClick={() => setToasts(prev => prev.filter(x => x.id !== t.id))}
+            >
+              &times;
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

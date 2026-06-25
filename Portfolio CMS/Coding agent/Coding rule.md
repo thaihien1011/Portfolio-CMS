@@ -36,3 +36,9 @@ This document outlines the development guidelines, testing checklists, and proje
 *   **Stuck Protocol**: Summarize your work and report back to the user immediately if you get stuck on a problem for more than 30 minutes.
 *   **Rollback Protocol**: Roll back to the previous working commit when facing critical, unresolved issues.
     *   To get approval for a rollback, write a detailed summary explaining why you want to roll back, what has been done, the impacts, and the proposed solutions.
+
+---
+
+## 5. User Experience & UI Feedback Rules
+*   **Toast Notifications for Actions**: Always show toast messages (success or failure) to give the administrator feedback when executing state-modifying actions (such as saving profile updates, submitting forms, deleting items, translation requests, or authentication attempts).
+*   **Visual Indicators**: Ensure all asynchronous processing actions display a loading indicator or disable buttons to prevent double submissions.

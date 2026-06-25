@@ -106,3 +106,12 @@ All administrative API endpoints require a Bearer JWT Token in the request heade
 *   `GET/POST/PUT/DELETE /api/admin/skills` - CRUD for skill items.
 *   `GET/POST/PUT/DELETE /api/admin/events` - CRUD for awards, activities, and detailed events.
 *   `GET/POST/PUT/DELETE /api/admin/gallery` - CRUD for video showcase links.
+
+---
+
+## 5. User Interface & User Experience Rules
+
+### Admin Panel Feedback
+*   **Toast Notifications**: The Admin CMS Panel **MUST** provide immediate feedback via floating toast notifications (success and error states) for all operations that modify data or initiate network processes (saving options, deleting items, translation requests, profile updates, and login/logout actions).
+*   **Asynchronous Actions**: When submitting forms or executing asynchronous updates, visual loading states must be used, and submission buttons should be temporarily disabled to prevent duplicate submissions.
+
