@@ -1116,3 +1116,128 @@ footer {
   }
 }
 
+/* YouTube & TikTok Video Modal Dialog */
+.video-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(12, 7, 29, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 99999;
+  animation: fadeInModal 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.video-modal-content {
+  position: relative;
+  width: 90%;
+  max-width: 900px;
+  background: rgba(26, 10, 48, 0.45);
+  border: 1px solid rgba(236, 72, 153, 0.25);
+  border-radius: 24px;
+  padding: 12px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 40px rgba(236, 72, 153, 0.15);
+  transform: scale(0.95);
+  animation: scaleInModal 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.video-modal-content.tiktok {
+  max-width: 420px;
+}
+
+.video-modal-close {
+  position: absolute;
+  top: -48px;
+  right: 0px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  font-size: 2rem;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  line-height: 1;
+}
+
+.video-modal-close:hover {
+  background: hsl(var(--color-pink));
+  border-color: transparent;
+  transform: rotate(90deg);
+  box-shadow: 0 0 15px hsl(var(--color-pink));
+}
+
+.video-modal-iframe-wrapper {
+  position: relative;
+  width: 100%;
+  padding-top: 56.25%; /* 16:9 Aspect Ratio */
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.video-modal-iframe-wrapper.tiktok {
+  padding-top: 177.78%; /* 9:16 Aspect Ratio */
+}
+
+.video-modal-iframe-wrapper iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+/* Fallback Video Placeholders and Gradients */
+.video-placeholder.tiktok {
+  background: linear-gradient(135deg, #010101, #00f2fe, #fe0979);
+  background-size: 200% 200%;
+  animation: gradientShift 5s ease infinite;
+}
+
+.video-placeholder.general {
+  background: linear-gradient(135deg, #1e1b4b, #312e81, #4c1d95);
+  background-size: 200% 200%;
+  animation: gradientShift 5s ease infinite;
+}
+
+.video-placeholder-fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+}
+
+@keyframes fadeInModal {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleInModal {
+  from { transform: scale(0.9) translateY(20px); }
+  to { transform: scale(1) translateY(0); }
+}
+
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+

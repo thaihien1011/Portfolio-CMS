@@ -902,7 +902,7 @@ function App() {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>YouTube ID</th>
+                  <th>Video Link / ID</th>
                   <th>Video Title</th>
                   <th>Order</th>
                   <th>Actions</th>
@@ -911,7 +911,16 @@ function App() {
               <tbody>
                 {portfolioData.gallery.map(item => (
                   <tr key={item.id}>
-                    <td><span style={{ color: 'var(--color-cyan)' }}>{item.youtube_id}</span></td>
+                    <td>
+                      <span 
+                        style={{ color: 'var(--color-cyan)', cursor: 'help' }} 
+                        title={item.youtube_id}
+                      >
+                        {item.youtube_id && item.youtube_id.length > 30 
+                          ? item.youtube_id.substring(0, 27) + '...'
+                          : item.youtube_id}
+                      </span>
+                    </td>
                     <td>{item.title}</td>
                     <td>{item.order_index}</td>
                     <td className="action-buttons">
@@ -1396,11 +1405,11 @@ function App() {
                     />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">YouTube 11-char ID</label>
+                    <label className="form-label">Video URL or YouTube ID</label>
                     <input 
                       type="text" 
                       className="form-control" 
-                      placeholder="e.g. dQw4w9WgXcQ"
+                      placeholder="e.g. YouTube/TikTok link or YouTube ID"
                       value={galleryForm.youtube_id || ''}
                       onChange={e => setGalleryForm({ ...galleryForm, youtube_id: e.target.value })}
                       required

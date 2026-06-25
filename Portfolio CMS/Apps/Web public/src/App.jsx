@@ -8,6 +8,69 @@ const API_URL = window.location.hostname === 'localhost' || window.location.host
   ? 'http://localhost:5000'
   : '';
 
+function parseVideoInput(input) {
+  if (!input) return { type: 'unknown', id: '', embedUrl: '', thumbnailUrl: '' };
+  const str = input.trim();
+
+  // 1. TikTok URL
+  const tiktokRegex = /tiktok\.com\/@[\w.-]+\/video\/(\d+)/;
+  const tiktokMatch = str.match(tiktokRegex);
+  if (tiktokMatch) {
+    const videoId = tiktokMatch[1];
+    return {
+      type: 'tiktok',
+      id: videoId,
+      embedUrl: `https://www.tiktok.com/embed/v2/${videoId}`,
+      thumbnailUrl: ''
+    };
+  }
+
+  // 2. YouTube URL or 11-char ID
+  let youtubeId = '';
+  if (str.length === 11 && !str.includes('/') && !str.includes('.')) {
+    youtubeId = str;
+  } else {
+    const ytRegexes = [
+      /[?&]v=([^&\s]+)/,
+      /youtu\.be\/([^?\s]+)/,
+      /youtube\.com\/embed\/([^?\s]+)/,
+      /youtube-nocookie\.com\/embed\/([^?\s]+)/
+    ];
+    for (const regex of ytRegexes) {
+      const match = str.match(regex);
+      if (match) {
+        youtubeId = match[1];
+        break;
+      }
+    }
+  }
+
+  if (youtubeId) {
+    return {
+      type: 'youtube',
+      id: youtubeId,
+      embedUrl: `https://www.youtube.com/embed/${youtubeId}?autoplay=1`,
+      thumbnailUrl: `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`
+    };
+  }
+
+  if (str.startsWith('http://') || str.startsWith('https://')) {
+    return {
+      type: 'general',
+      id: str,
+      embedUrl: str,
+      thumbnailUrl: ''
+    };
+  }
+
+  return {
+    type: 'unknown',
+    id: str,
+    embedUrl: '',
+    thumbnailUrl: ''
+  };
+}
+
 function App() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -611,21 +674,36 @@ function App() {
           </div>
 
           <div className="gallery-grid">
-            {gallery.map(item => (
-              <div className="gallery-card" key={item.id} onClick={() => setActiveVideoId(item.youtube_id)}>
-                <div className="video-container">
-                  <div 
-                    className="video-placeholder" 
-                    style={{ backgroundImage: `url('https://img.youtube.com/vi/${item.youtube_id}/hqdefault.jpg')` }}
-                  >
-                    <div className="play-btn">
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            {gallery.map(item => {
+              const videoInfo = parseVideoInput(item.youtube_id);
+              const hasThumbnail = videoInfo.thumbnailUrl !== '';
+              return (
+                <div className="gallery-card" key={item.id} onClick={() => setActiveVideoId(item.youtube_id)}>
+                  <div className="video-container">
+                    <div 
+                      className={`video-placeholder ${videoInfo.type}`}
+                      style={hasThumbnail ? { backgroundImage: `url('${videoInfo.thumbnailUrl}')` } : {}}
+                    >
+                      {!hasThumbnail && (
+                        <div className="video-placeholder-fallback">
+                          {videoInfo.type === 'tiktok' ? (
+                            <svg viewBox="0 0 24 24" fill="currentColor" width="36" height="36" style={{ color: '#fff', marginBottom: '8px' }}>
+                              <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.02 1.59 4.23.86 1.08 2.06 1.81 3.42 2.06v4.02a8.046 8.046 0 0 1-5.18-1.89c-.19-.16-.38-.34-.55-.53V15c0 1.63-.4 3.23-1.18 4.65A9.01 9.01 0 0 1 6.55 24a8.91 8.91 0 0 1-6.19-2.91 8.9 8.9 0 0 1-1.74-7.46A9.03 9.03 0 0 1 7.21 6.8c.04.81.25 1.61.62 2.33.37.72.9 1.34 1.54 1.83.64.49 1.39.82 2.19.98.79.15 1.61.12 2.4-.09V.02z"/>
+                            </svg>
+                          ) : (
+                            <i className="fa fa-video-camera" style={{ fontSize: '2.25rem', color: '#fff', marginBottom: '8px' }}></i>
+                          )}
+                        </div>
+                      )}
+                      <div className="play-btn">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                      </div>
                     </div>
                   </div>
+                  <h3>{t(item.title)}</h3>
                 </div>
-                <h3>{t(item.title)}</h3>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
 
@@ -682,23 +760,26 @@ function App() {
           <p>© 2026 {t(profile.hero_title)}. {tUI('footerRules')}</p>
         </footer>
 
-        {/* YouTube Video Modal Dialog */}
-        {activeVideoId && (
-          <div className="video-modal-overlay" onClick={() => setActiveVideoId(null)}>
-            <div className="video-modal-content" onClick={e => e.stopPropagation()}>
-              <button className="video-modal-close" onClick={() => setActiveVideoId(null)} aria-label="Close Modal">&times;</button>
-              <div className="video-modal-iframe-wrapper">
-                <iframe 
-                  src={`https://www.youtube.com/embed/${activeVideoId}?autoplay=1`}
-                  title="YouTube video player"
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                ></iframe>
+        {/* YouTube & TikTok Video Modal Dialog */}
+        {activeVideoId && (() => {
+          const videoInfo = parseVideoInput(activeVideoId);
+          return (
+            <div className="video-modal-overlay" onClick={() => setActiveVideoId(null)}>
+              <div className={`video-modal-content ${videoInfo.type}`} onClick={e => e.stopPropagation()}>
+                <button className="video-modal-close" onClick={() => setActiveVideoId(null)} aria-label="Close Modal">&times;</button>
+                <div className={`video-modal-iframe-wrapper ${videoInfo.type}`}>
+                  <iframe 
+                    src={videoInfo.embedUrl}
+                    title="Video player"
+                    frameBorder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                  ></iframe>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
       </div>
     );
   }
