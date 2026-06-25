@@ -30,6 +30,127 @@ const getFullAssetUrl = (url) => {
   return `${API_URL}${url}`;
 };
 
+const renderLocale = (field) => {
+  if (!field) return '';
+  if (typeof field === 'object') {
+    return field.vi || field.en || '';
+  }
+  return String(field);
+};
+
+function TranslatableField({ label, value, onChange, type = 'text', placeholder = '', apiCall, setError }) {
+  const [translating, setTranslating] = React.useState(false);
+
+  const valVi = typeof value === 'object' && value ? (value.vi || '') : (value || '');
+  const valEn = typeof value === 'object' && value ? (value.en || '') : (value || '');
+
+  const handleViChange = (e) => {
+    onChange({ vi: e.target.value, en: valEn });
+  };
+
+  const handleEnChange = (e) => {
+    onChange({ vi: valVi, en: e.target.value });
+  };
+
+  const triggerTranslate = async () => {
+    if (!valVi) return;
+    setTranslating(true);
+    try {
+      const res = await apiCall('/api/admin/translate', {
+        method: 'POST',
+        body: JSON.stringify({ text: valVi, from: 'vi', to: 'en' })
+      });
+      if (res && res.translatedText) {
+        onChange({ vi: valVi, en: res.translatedText });
+      }
+    } catch (err) {
+      setError(`Auto-translation error: ${err.message}`);
+    } finally {
+      setTranslating(false);
+    }
+  };
+
+  return (
+    <div className="translatable-field-container" style={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      gap: '8px', 
+      marginBottom: '16px', 
+      padding: '12px', 
+      background: 'rgba(255, 255, 255, 0.02)', 
+      borderRadius: '12px', 
+      border: '1px solid rgba(255, 255, 255, 0.05)' 
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <label className="form-label" style={{ fontWeight: '600', marginBottom: 0 }}>{label}</label>
+        <button 
+          type="button" 
+          onClick={triggerTranslate} 
+          disabled={translating || !valVi}
+          className="btn-secondary"
+          style={{ 
+            fontSize: '11px', 
+            padding: '3px 8px', 
+            cursor: !valVi ? 'not-allowed' : 'pointer', 
+            opacity: !valVi ? 0.5 : 1, 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '4px', 
+            background: 'linear-gradient(135deg, rgba(236,72,153,0.1), rgba(139,92,246,0.1))', 
+            border: '1px solid rgba(236,72,153,0.3)', 
+            borderRadius: '6px', 
+            color: '#fff' 
+          }}
+        >
+          {translating ? 'Translating...' : '✨ Auto-translate VI to EN'}
+        </button>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+        <div>
+          <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', display: 'block', marginBottom: '4px' }}>Tiếng Việt (VI)</span>
+          {type === 'textarea' ? (
+            <textarea
+              className="form-control"
+              value={valVi}
+              onChange={handleViChange}
+              placeholder={placeholder}
+              rows="3"
+            />
+          ) : (
+            <input
+              type="text"
+              className="form-control"
+              value={valVi}
+              onChange={handleViChange}
+              placeholder={placeholder}
+            />
+          )}
+        </div>
+        <div>
+          <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', display: 'block', marginBottom: '4px' }}>English (EN)</span>
+          {type === 'textarea' ? (
+            <textarea
+              className="form-control"
+              value={valEn}
+              onChange={handleEnChange}
+              placeholder={placeholder}
+              rows="3"
+            />
+          ) : (
+            <input
+              type="text"
+              className="form-control"
+              value={valEn}
+              onChange={handleEnChange}
+              placeholder={placeholder}
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const [token, setToken] = useState(localStorage.getItem('portfolio_admin_token') || '');
   const [username, setUsername] = useState('');
@@ -282,9 +403,9 @@ function App() {
     setModalOpen(true);
     
     // Reset forms to defaults
-    if (type === 'timeline') setTimelineForm({ type: 'education', time_period: '', title: '', subtitle: '', description: '', order_index: 0 });
-    if (type === 'skills') setSkillsForm({ name: '', percentage: 80, order_index: 0 });
-    if (type === 'events') setEventsForm({ event_date: '', date_string: '', category: '', title: '', description: '', highlight_summary: '', location: '', image_url: '', tab_category: 'science', order_index: 0 });
+    if (type === 'timeline') setTimelineForm({ type: 'education', time_period: { vi: '', en: '' }, title: { vi: '', en: '' }, subtitle: { vi: '', en: '' }, description: { vi: '', en: '' }, order_index: 0 });
+    if (type === 'skills') setSkillsForm({ name: { vi: '', en: '' }, percentage: 80, order_index: 0 });
+    if (type === 'events') setEventsForm({ event_date: '', date_string: { vi: '', en: '' }, category: { vi: '', en: '' }, title: { vi: '', en: '' }, description: { vi: '', en: '' }, highlight_summary: { vi: '', en: '' }, location: { vi: '', en: '' }, image_url: '', tab_category: 'science', order_index: 0 });
     if (type === 'gallery') setGalleryForm({ youtube_id: '', title: '', order_index: 0 });
     if (type === 'users') setUsersForm({ username: '', password: '' });
   };
@@ -295,10 +416,29 @@ function App() {
     setCurrentItemId(item.id);
     setModalOpen(true);
     
+    const normalize = (field) => typeof field === 'object' && field ? field : { vi: field || '', en: field || '' };
+    
     // Populate form states
-    if (type === 'timeline') setTimelineForm({ ...item });
-    if (type === 'skills') setSkillsForm({ ...item });
-    if (type === 'events') setEventsForm({ ...item });
+    if (type === 'timeline') setTimelineForm({ 
+      ...item,
+      time_period: normalize(item.time_period),
+      title: normalize(item.title),
+      subtitle: normalize(item.subtitle),
+      description: normalize(item.description)
+    });
+    if (type === 'skills') setSkillsForm({ 
+      ...item,
+      name: normalize(item.name)
+    });
+    if (type === 'events') setEventsForm({ 
+      ...item,
+      date_string: normalize(item.date_string),
+      category: normalize(item.category),
+      title: normalize(item.title),
+      description: normalize(item.description),
+      highlight_summary: normalize(item.highlight_summary),
+      location: normalize(item.location)
+    });
     if (type === 'gallery') setGalleryForm({ ...item });
     if (type === 'users') setUsersForm({ username: item.username, password: '' });
   };
@@ -454,32 +594,28 @@ function App() {
           <div className="panel-card">
             <form onSubmit={saveProfileSettings}>
               <h3 style={{ marginBottom: '20px', color: 'var(--color-pink)' }}>Hero Section</h3>
-              <div className="form-group">
-                <label className="form-label">Hero Banner Title</label>
-                <input 
-                  type="text" 
-                  className="form-control" 
-                  value={profileForm.hero_title || ''} 
-                  onChange={e => setProfileForm({ ...profileForm, hero_title: e.target.value })}
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Hero Subtitle</label>
-                <input 
-                  type="text" 
-                  className="form-control" 
-                  value={profileForm.hero_subtitle || ''} 
-                  onChange={e => setProfileForm({ ...profileForm, hero_subtitle: e.target.value })}
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Hero Description</label>
-                <textarea 
-                  className="form-control" 
-                  value={profileForm.hero_description || ''} 
-                  onChange={e => setProfileForm({ ...profileForm, hero_description: e.target.value })}
-                />
-              </div>
+              <TranslatableField 
+                label="Hero Banner Title"
+                value={profileForm.hero_title}
+                onChange={val => setProfileForm({ ...profileForm, hero_title: val })}
+                apiCall={apiCall}
+                setError={setError}
+              />
+              <TranslatableField 
+                label="Hero Subtitle"
+                value={profileForm.hero_subtitle}
+                onChange={val => setProfileForm({ ...profileForm, hero_subtitle: val })}
+                apiCall={apiCall}
+                setError={setError}
+              />
+              <TranslatableField 
+                label="Hero Description"
+                type="textarea"
+                value={profileForm.hero_description}
+                onChange={val => setProfileForm({ ...profileForm, hero_description: val })}
+                apiCall={apiCall}
+                setError={setError}
+              />
               <div className="form-group">
                 <label className="form-label">Hero Background Image URL</label>
                 <input 
@@ -514,49 +650,47 @@ function App() {
                   />
                 </div>
               </div>
-              <div className="form-group">
-                <label className="form-label">About Biography - Paragraph 1</label>
-                <textarea 
-                  className="form-control" 
-                  value={profileForm.about_bio_p1 || ''} 
-                  onChange={e => setProfileForm({ ...profileForm, about_bio_p1: e.target.value })}
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">About Biography - Paragraph 2</label>
-                <textarea 
-                  className="form-control" 
-                  value={profileForm.about_bio_p2 || ''} 
-                  onChange={e => setProfileForm({ ...profileForm, about_bio_p2: e.target.value })}
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Highlight Quote</label>
-                <textarea 
-                  className="form-control" 
-                  value={profileForm.personal_quote || ''} 
-                  onChange={e => setProfileForm({ ...profileForm, personal_quote: e.target.value })}
-                />
-              </div>
+              <TranslatableField 
+                label="About Biography - Paragraph 1"
+                type="textarea"
+                value={profileForm.about_bio_p1}
+                onChange={val => setProfileForm({ ...profileForm, about_bio_p1: val })}
+                apiCall={apiCall}
+                setError={setError}
+              />
+              <TranslatableField 
+                label="About Biography - Paragraph 2"
+                type="textarea"
+                value={profileForm.about_bio_p2}
+                onChange={val => setProfileForm({ ...profileForm, about_bio_p2: val })}
+                apiCall={apiCall}
+                setError={setError}
+              />
+              <TranslatableField 
+                label="Highlight Quote"
+                type="textarea"
+                value={profileForm.personal_quote}
+                onChange={val => setProfileForm({ ...profileForm, personal_quote: val })}
+                apiCall={apiCall}
+                setError={setError}
+              />
 
               <h3 style={{ margin: '40px 0 20px 0', color: 'var(--color-pink)' }}>Metadata & Communication</h3>
-              <div className="form-group">
-                <label className="form-label">Browser Window Title (SEO Meta)</label>
-                <input 
-                  type="text" 
-                  className="form-control" 
-                  value={profileForm.meta_title || ''} 
-                  onChange={e => setProfileForm({ ...profileForm, meta_title: e.target.value })}
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Browser Description (SEO Meta)</label>
-                <textarea 
-                  className="form-control" 
-                  value={profileForm.meta_description || ''} 
-                  onChange={e => setProfileForm({ ...profileForm, meta_description: e.target.value })}
-                />
-              </div>
+              <TranslatableField 
+                label="Browser Window Title (SEO Meta)"
+                value={profileForm.meta_title}
+                onChange={val => setProfileForm({ ...profileForm, meta_title: val })}
+                apiCall={apiCall}
+                setError={setError}
+              />
+              <TranslatableField 
+                label="Browser Description (SEO Meta)"
+                type="textarea"
+                value={profileForm.meta_description}
+                onChange={val => setProfileForm({ ...profileForm, meta_description: val })}
+                apiCall={apiCall}
+                setError={setError}
+              />
               <div className="form-group">
                 <label className="form-label">Contact Destination Email</label>
                 <input 
@@ -639,9 +773,9 @@ function App() {
                 {portfolioData.timeline.map(item => (
                   <tr key={item.id}>
                     <td><span className="form-label" style={{ marginBottom: 0, color: 'var(--color-cyan)' }}>{item.type}</span></td>
-                    <td>{item.time_period}</td>
-                    <td>{item.title}</td>
-                    <td>{item.subtitle || '-'}</td>
+                    <td>{renderLocale(item.time_period)}</td>
+                    <td>{renderLocale(item.title)}</td>
+                    <td>{renderLocale(item.subtitle) || '-'}</td>
                     <td>{item.order_index}</td>
                     <td className="action-buttons">
                       <button className="btn-edit" onClick={() => openEditModal('timeline', item)}>Edit</button>
@@ -673,7 +807,7 @@ function App() {
               <tbody>
                 {portfolioData.skills.map(item => (
                   <tr key={item.id}>
-                    <td><strong>{item.name}</strong></td>
+                    <td><strong>{renderLocale(item.name)}</strong></td>
                     <td>{item.percentage}%</td>
                     <td>{item.order_index}</td>
                     <td className="action-buttons">
@@ -708,10 +842,10 @@ function App() {
               <tbody>
                 {portfolioData.events.map(item => (
                   <tr key={item.id}>
-                    <td>{item.date_string}</td>
+                    <td>{renderLocale(item.date_string)}</td>
                     <td><span style={{ color: 'var(--color-cyan)', fontSize: '13px' }}>{item.tab_category}</span></td>
-                    <td><strong>{item.title}</strong></td>
-                    <td>{item.category}</td>
+                    <td><strong>{renderLocale(item.title)}</strong></td>
+                    <td>{renderLocale(item.category)}</td>
                     <td>{item.order_index}</td>
                     <td className="action-buttons">
                       <button className="btn-edit" onClick={() => openEditModal('events', item)}>Edit</button>
@@ -1015,47 +1149,39 @@ function App() {
                       <option value="experience">Kinh nghiệm thực tiễn (Experience)</option>
                     </select>
                   </div>
-                  <div className="form-group">
-                    <label className="form-label">Time Period</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      placeholder="e.g. 2024 - Hiện tại or Grade 3 Piano" 
-                      value={timelineForm.time_period || ''}
-                      onChange={e => setTimelineForm({ ...timelineForm, time_period: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Title / Board</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      placeholder="e.g. Học sinh, Associated Board, etc." 
-                      value={timelineForm.title || ''}
-                      onChange={e => setTimelineForm({ ...timelineForm, title: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Subtitle / Organisation</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      placeholder="e.g. Amazing Music Center or WASS" 
-                      value={timelineForm.subtitle || ''}
-                      onChange={e => setTimelineForm({ ...timelineForm, subtitle: e.target.value })}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Bullet Description (Use newlines for bullets)</label>
-                    <textarea 
-                      className="form-control" 
-                      placeholder="e.g. * Hỗ trợ giáo viên&#13;* Thị phạm chơi đàn"
-                      value={timelineForm.description || ''}
-                      onChange={e => setTimelineForm({ ...timelineForm, description: e.target.value })}
-                    />
-                  </div>
+                  <TranslatableField 
+                    label="Time Period"
+                    value={timelineForm.time_period}
+                    onChange={val => setTimelineForm({ ...timelineForm, time_period: val })}
+                    placeholder="e.g. 2024 - Hiện tại / Grade 3 Piano"
+                    apiCall={apiCall}
+                    setError={setError}
+                  />
+                  <TranslatableField 
+                    label="Title / Board"
+                    value={timelineForm.title}
+                    onChange={val => setTimelineForm({ ...timelineForm, title: val })}
+                    placeholder="e.g. Học sinh / Associated Board..."
+                    apiCall={apiCall}
+                    setError={setError}
+                  />
+                  <TranslatableField 
+                    label="Subtitle / Organisation"
+                    value={timelineForm.subtitle}
+                    onChange={val => setTimelineForm({ ...timelineForm, subtitle: val })}
+                    placeholder="e.g. Amazing Music Center or WASS"
+                    apiCall={apiCall}
+                    setError={setError}
+                  />
+                  <TranslatableField 
+                    label="Bullet Description (Use newlines for bullets)"
+                    type="textarea"
+                    value={timelineForm.description}
+                    onChange={val => setTimelineForm({ ...timelineForm, description: val })}
+                    placeholder="e.g. * Hỗ trợ giáo viên&#13;* Thị phạm chơi đàn"
+                    apiCall={apiCall}
+                    setError={setError}
+                  />
                   <div className="form-group">
                     <label className="form-label">Sort Weight (Order Index)</label>
                     <input 
@@ -1071,16 +1197,14 @@ function App() {
               {/* SKILLS FORM */}
               {modalType === 'skills' && (
                 <>
-                  <div className="form-group">
-                    <label className="form-label">Skill Name</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      value={skillsForm.name || ''}
-                      onChange={e => setSkillsForm({ ...skillsForm, name: e.target.value })}
-                      required
-                    />
-                  </div>
+                  <TranslatableField 
+                    label="Skill Name"
+                    value={skillsForm.name}
+                    onChange={val => setSkillsForm({ ...skillsForm, name: val })}
+                    placeholder="e.g. Kỹ năng giao tiếp"
+                    apiCall={apiCall}
+                    setError={setError}
+                  />
                   <div className="form-group">
                     <label className="form-label">Percentage Level ({skillsForm.percentage}%)</label>
                     <input 
@@ -1118,17 +1242,14 @@ function App() {
                       required
                     />
                   </div>
-                  <div className="form-group">
-                    <label className="form-label">Display Date Title</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      placeholder="e.g. 05/2026 or 2025" 
-                      value={eventsForm.date_string || ''}
-                      onChange={e => setEventsForm({ ...eventsForm, date_string: e.target.value })}
-                      required
-                    />
-                  </div>
+                  <TranslatableField 
+                    label="Display Date Title"
+                    value={eventsForm.date_string}
+                    onChange={val => setEventsForm({ ...eventsForm, date_string: val })}
+                    placeholder="e.g. 05/2026 or 2025"
+                    apiCall={apiCall}
+                    setError={setError}
+                  />
                   <div className="form-group">
                     <label className="form-label">Tag Category tabs (Comma separated)</label>
                     <input 
@@ -1140,56 +1261,47 @@ function App() {
                       required
                     />
                   </div>
-                  <div className="form-group">
-                    <label className="form-label">Category Title Label</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      placeholder="e.g. Tournament or Music Performance" 
-                      value={eventsForm.category || ''}
-                      onChange={e => setEventsForm({ ...eventsForm, category: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Event/Award Title</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      value={eventsForm.title || ''}
-                      onChange={e => setEventsForm({ ...eventsForm, title: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Highlight Summary (Single-sentence award tab highlight)</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      placeholder="Use **bold** highlights. Defaults to Title if empty."
-                      value={eventsForm.highlight_summary || ''}
-                      onChange={e => setEventsForm({ ...eventsForm, highlight_summary: e.target.value })}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Description (Timeline body paragraph)</label>
-                    <textarea 
-                      className="form-control" 
-                      value={eventsForm.description || ''}
-                      onChange={e => setEventsForm({ ...eventsForm, description: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Location (Optional)</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      placeholder="e.g. Kay Bailey Hutchison Convention Center..." 
-                      value={eventsForm.location || ''}
-                      onChange={e => setEventsForm({ ...eventsForm, location: e.target.value })}
-                    />
-                  </div>
+                  <TranslatableField 
+                    label="Category Title Label"
+                    value={eventsForm.category}
+                    onChange={val => setEventsForm({ ...eventsForm, category: val })}
+                    placeholder="e.g. Tournament or Music Performance"
+                    apiCall={apiCall}
+                    setError={setError}
+                  />
+                  <TranslatableField 
+                    label="Event/Award Title"
+                    value={eventsForm.title}
+                    onChange={val => setEventsForm({ ...eventsForm, title: val })}
+                    placeholder="e.g. VEX IQ MS World Championship 2026"
+                    apiCall={apiCall}
+                    setError={setError}
+                  />
+                  <TranslatableField 
+                    label="Highlight Summary (Single-sentence award tab highlight)"
+                    value={eventsForm.highlight_summary}
+                    onChange={val => setEventsForm({ ...eventsForm, highlight_summary: val })}
+                    placeholder="Use **bold** highlights. Defaults to Title if empty."
+                    apiCall={apiCall}
+                    setError={setError}
+                  />
+                  <TranslatableField 
+                    label="Description (Timeline body paragraph)"
+                    type="textarea"
+                    value={eventsForm.description}
+                    onChange={val => setEventsForm({ ...eventsForm, description: val })}
+                    placeholder="Event detailed description..."
+                    apiCall={apiCall}
+                    setError={setError}
+                  />
+                  <TranslatableField 
+                    label="Location (Optional)"
+                    value={eventsForm.location}
+                    onChange={val => setEventsForm({ ...eventsForm, location: val })}
+                    placeholder="e.g. Dallas, Texas, USA"
+                    apiCall={apiCall}
+                    setError={setError}
+                  />
                   <div className="form-group">
                     <label className="form-label">Upload Event cover image</label>
                     <div className="upload-widget">

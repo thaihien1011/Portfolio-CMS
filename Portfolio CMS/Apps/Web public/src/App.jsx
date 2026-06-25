@@ -15,6 +15,93 @@ function App() {
   const [activeVideoId, setActiveVideoId] = useState(null); // YouTube ID for Modal
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('awards'); // 'awards' | 'arts' | 'science' | 'shows'
+  const [language, setLanguage] = useState(() => {
+    return localStorage.getItem('portfolio_lang') || 'vi';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('portfolio_lang', language);
+  }, [language]);
+
+  const uiTranslations = {
+    vi: {
+      navHome: 'Home',
+      navAbout: 'About',
+      navTimeline: 'Timeline',
+      navSkills: 'Skills',
+      navActivities: 'Activities',
+      navGallery: 'Gallery',
+      navEvents: 'Events',
+      navContact: 'Contact',
+      exploreBtn: 'Khám Phá Bản Thân Mình',
+      aboutTitle: 'About Me',
+      educationTitle: 'Education & Experience',
+      eduSectionTitle: 'Hành trình Học tập',
+      certSectionTitle: 'Chứng chỉ Đạt được',
+      expSectionTitle: 'Kinh nghiệm thực tiễn',
+      skillsTitle: 'Kỹ năng Thế mạnh',
+      activitiesTitle: 'Awards & Activities',
+      tabAwards: '🏆 Thành tích nổi bật',
+      tabArts: '🎹 Hoạt động Nghệ thuật',
+      tabScience: '🔬 Robot & Khoa học',
+      tabShows: '📺 Truyền hình & Giải trí',
+      galleryTitle: 'Behind the Scenes 🎬',
+      contactTitle: 'Let\'s Connect',
+      contactSubtitle: 'Hành trình tiếp theo sẽ rất thú vị! Kết nối ngay để cùng nhau collab nhé! 📩',
+      contactText: 'Mình đang sống và học tập tại **TP. Hồ Chí Minh** và luôn sẵn sàng cho những ý tưởng nghệ thuật đột phá, những dự án khoa học công nghệ, hay những đợt cọ sát thi đấu robot VEX IQ mới! 💥',
+      collabTitle: 'Collaboration & Contact',
+      collabDesc: 'Bạn muốn cộng tác hoặc tài trợ cho các dự án VEX IQ Robotics hoặc các buổi biểu diễn nghệ thuật sắp tới? Hãy gửi email trực tiếp cho Trà My tại:',
+      footerRules: 'My rules, My world 💜',
+      noEvents: 'Chưa có thông tin hoạt động trong mục này.',
+      eventSubtitle: 'Hồ sơ Robotics & Nghệ thuật biểu diễn',
+      scroll: 'Scroll'
+    },
+    en: {
+      navHome: 'Home',
+      navAbout: 'About',
+      navTimeline: 'Timeline',
+      navSkills: 'Skills',
+      navActivities: 'Activities',
+      navGallery: 'Gallery',
+      navEvents: 'Events',
+      navContact: 'Contact',
+      exploreBtn: 'Explore My World',
+      aboutTitle: 'About Me',
+      educationTitle: 'Education & Experience',
+      eduSectionTitle: 'Educational Journey',
+      certSectionTitle: 'Certifications',
+      expSectionTitle: 'Practical Experience',
+      skillsTitle: 'Core Strengths & Skills',
+      activitiesTitle: 'Awards & Activities',
+      tabAwards: '🏆 Outstanding Achievements',
+      tabArts: '🎹 Performing Arts',
+      tabScience: '🔬 Robotics & Science',
+      tabShows: '📺 Media & Entertainment',
+      galleryTitle: 'Behind the Scenes 🎬',
+      contactTitle: 'Let\'s Connect',
+      contactSubtitle: 'The next journey will be exciting! Connect now to collaborate! 📩',
+      contactText: 'I live and study in **Ho Chi Minh City** and am always ready for groundbreaking artistic ideas, scientific projects, or new VEX IQ Robotics competitions! 💥',
+      collabTitle: 'Collaboration & Contact',
+      collabDesc: 'Want to collaborate or sponsor upcoming VEX IQ Robotics projects or art performances? Send an email directly to Tra My at:',
+      footerRules: 'My rules, My world 💜',
+      noEvents: 'No activities found in this category.',
+      eventSubtitle: 'Robotics & Performing Arts Portfolio',
+      scroll: 'Scroll'
+    }
+  };
+
+  const tUI = (key) => {
+    return uiTranslations[language]?.[key] || uiTranslations['vi']?.[key] || '';
+  };
+
+  const t = (field) => {
+    if (!field) return '';
+    if (typeof field === 'object') {
+      return field[language] || field.vi || field.en || '';
+    }
+    return String(field);
+  };
+
 
   // Router listener using hash changes
   useEffect(() => {
@@ -184,13 +271,13 @@ function App() {
   // Update document title and meta properties dynamically based on database profile info
   useEffect(() => {
     if (data && data.profile) {
-      document.title = data.profile.meta_title || 'Nguyen Tra My | Student Portfolio';
+      document.title = t(data.profile.meta_title) || 'Nguyen Tra My | Student Portfolio';
       const metaDesc = document.querySelector('meta[name="description"]');
       if (metaDesc) {
-        metaDesc.setAttribute('content', data.profile.meta_description || '');
+        metaDesc.setAttribute('content', t(data.profile.meta_description) || '');
       }
     }
-  }, [data]);
+  }, [data, language]);
 
   if (loading) {
     return (
@@ -234,19 +321,20 @@ function App() {
     // Group items by year
     const groups = {};
     filteredEvents.forEach(evt => {
-      let year = 'Khác';
+      let year = language === 'vi' ? 'Khác' : 'Other';
+      const ds = t(evt.date_string);
       // Try to extract year from date_string (e.g. "05/2026" -> "2026") or event_date (e.g. "2026-05" -> "2026")
       if (evt.event_date && evt.event_date.match(/^\d{4}/)) {
         year = evt.event_date.substring(0, 4);
-      } else if (evt.date_string && evt.date_string.match(/\d{4}$/)) {
-        const matches = evt.date_string.match(/\d{4}$/);
+      } else if (ds && ds.match(/\d{4}$/)) {
+        const matches = ds.match(/\d{4}$/);
         year = matches[0];
-      } else if (evt.date_string && evt.date_string.match(/^\d{4}/)) {
-        const matches = evt.date_string.match(/^\d{4}/);
+      } else if (ds && ds.match(/^\d{4}/)) {
+        const matches = ds.match(/^\d{4}/);
         year = matches[0];
       }
       
-      const groupKey = `Năm ${year}`;
+      const groupKey = year === 'Khác' || year === 'Other' ? year : (language === 'vi' ? `Năm ${year}` : `Year ${year}`);
       if (!groups[groupKey]) groups[groupKey] = [];
       groups[groupKey].push(evt);
     });
@@ -255,7 +343,7 @@ function App() {
     const sortedKeys = Object.keys(groups).sort((a, b) => b.localeCompare(a));
 
     if (sortedKeys.length === 0) {
-      return <div className="no-events-tab">Chưa có thông tin hoạt động trong mục này.</div>;
+      return <div className="no-events-tab">{tUI('noEvents')}</div>;
     }
 
     return (
@@ -268,7 +356,7 @@ function App() {
             </h4>
             <ul className="activity-list">
               {groups[groupKey].map(evt => {
-                const bulletText = evt.highlight_summary || evt.title;
+                const bulletText = t(evt.highlight_summary) || t(evt.title);
                 return (
                   <li key={evt.id} dangerouslySetInnerHTML={{ __html: bulletText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
                 );
@@ -334,20 +422,27 @@ function App() {
           <div className="nav-container">
             <a href="#" className="logo">
               <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" className="lucide lucide-crown"><path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7z"/><path d="M5 20h14"/></svg>
-              {profile.hero_title || 'Nguyen Tra My'}
+              {t(profile.hero_title) || 'Nguyen Tra My'}
             </a>
             <button className="mobile-menu-btn" onClick={() => setMobileMenuOpen(!mobileMenuOpen)} aria-label="Toggle Menu">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
             </button>
             <ul className={`nav-links ${mobileMenuOpen ? 'mobile-open' : ''}`} id="navLinks">
-              <li><a href="#" className="active" onClick={() => setMobileMenuOpen(false)}>Home</a></li>
-              <li><a href="#about" onClick={() => setMobileMenuOpen(false)}>About</a></li>
-              <li><a href="#education" onClick={() => setMobileMenuOpen(false)}>Timeline</a></li>
-              <li><a href="#skills" onClick={() => setMobileMenuOpen(false)}>Skills</a></li>
-              <li><a href="#activities" onClick={() => setMobileMenuOpen(false)}>Activities</a></li>
-              <li><a href="#gallery" onClick={() => setMobileMenuOpen(false)}>Gallery</a></li>
-              <li><a href="#events" onClick={() => setMobileMenuOpen(false)}>Events</a></li>
-              <li><a href="#contact" onClick={() => setMobileMenuOpen(false)}>Contact</a></li>
+              <li><a href="#" className="active" onClick={() => setMobileMenuOpen(false)}>{tUI('navHome')}</a></li>
+              <li><a href="#about" onClick={() => setMobileMenuOpen(false)}>{tUI('navAbout')}</a></li>
+              <li><a href="#education" onClick={() => setMobileMenuOpen(false)}>{tUI('navTimeline')}</a></li>
+              <li><a href="#skills" onClick={() => setMobileMenuOpen(false)}>{tUI('navSkills')}</a></li>
+              <li><a href="#activities" onClick={() => setMobileMenuOpen(false)}>{tUI('navActivities')}</a></li>
+              <li><a href="#gallery" onClick={() => setMobileMenuOpen(false)}>{tUI('navGallery')}</a></li>
+              <li><a href="#events" onClick={() => setMobileMenuOpen(false)}>{tUI('navEvents')}</a></li>
+              <li><a href="#contact" onClick={() => setMobileMenuOpen(false)}>{tUI('navContact')}</a></li>
+              <li className="nav-lang-item" style={{ display: 'flex', alignItems: 'center', marginLeft: '8px' }}>
+                <div className="lang-switcher">
+                  <button className={`lang-btn ${language === 'vi' ? 'active' : ''}`} onClick={() => setLanguage('vi')}>VI</button>
+                  <span className="lang-divider">|</span>
+                  <button className={`lang-btn ${language === 'en' ? 'active' : ''}`} onClick={() => setLanguage('en')}>EN</button>
+                </div>
+              </li>
             </ul>
           </div>
         </header>
@@ -359,18 +454,18 @@ function App() {
             style={{ backgroundImage: `url('${getFullAssetUrl(profile.hero_bg_image)}')` }}
           ></div>
           <div className="hero-content">
-            <span className="hero-subtitle">{profile.hero_subtitle}</span>
+            <span className="hero-subtitle">{t(profile.hero_subtitle)}</span>
             <div className="hero-title-container">
-              <h1 className="hero-title text-glow-purple">{profile.hero_title}</h1>
+              <h1 className="hero-title text-glow-purple">{t(profile.hero_title)}</h1>
             </div>
-            <p className="hero-desc">{profile.hero_description}</p>
+            <p className="hero-desc">{t(profile.hero_description)}</p>
             <a href="#about" className="hero-btn">
-              Khám Phá Bản Thân Mình
+              {tUI('exploreBtn')}
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
             </a>
           </div>
           <div className="scroll-down" id="scrollIndicator">
-            <span>Scroll</span>
+            <span>{tUI('scroll')}</span>
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
           </div>
         </section>
@@ -387,13 +482,13 @@ function App() {
             <div className="about-text">
               <div className="section-title-container left">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style={{ color: 'hsl(var(--color-pink))' }}><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275Z"/></svg>
-                <h2 className="section-title">About Me</h2>
+                <h2 className="section-title">{tUI('aboutTitle')}</h2>
               </div>
-              <p className="about-bio">{profile.about_bio_p1}</p>
-              <p className="about-bio">{profile.about_bio_p2}</p>
+              <p className="about-bio">{t(profile.about_bio_p1)}</p>
+              <p className="about-bio">{t(profile.about_bio_p2)}</p>
               <div className="quote-card">
-                <p className="quote-text">{profile.personal_quote}</p>
-                <span className="quote-author">— {profile.hero_title}</span>
+                <p className="quote-text">{t(profile.personal_quote)}</p>
+                <span className="quote-author">— {t(profile.hero_title)}</span>
               </div>
             </div>
           </div>
@@ -403,7 +498,7 @@ function App() {
         <section id="education" className="section-wrapper">
           <div className="section-title-container">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style={{ color: 'hsl(var(--color-pink))' }}><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10"/><path d="M6 10h10"/></svg>
-            <h2 className="section-title">Education & Experience</h2>
+            <h2 className="section-title">{tUI('educationTitle')}</h2>
           </div>
 
           <div className="split-grid">
@@ -411,30 +506,30 @@ function App() {
             <div className="glass-panel split-card">
               <h3>
                 <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style={{ color: 'hsl(var(--color-pink))' }}><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 2 2 3 6 3s6-1 6-3v-5"/></svg>
-                Hành trình Học tập
+                {tUI('eduSectionTitle')}
               </h3>
               <div className="timeline">
                 {timeline.filter(t => t.type === 'education').map(item => (
                   <div className="timeline-item" key={item.id}>
                     <div className="timeline-marker"></div>
-                    <div className="timeline-time">{item.time_period}</div>
-                    <div className="timeline-title">{item.title}</div>
-                    <div className="timeline-subtitle">{item.subtitle}</div>
-                    <div className="timeline-desc">{renderFormattedDescription(item.description)}</div>
+                    <div className="timeline-time">{t(item.time_period)}</div>
+                    <div className="timeline-title">{t(item.title)}</div>
+                    <div className="timeline-subtitle">{t(item.subtitle)}</div>
+                    <div className="timeline-desc">{renderFormattedDescription(t(item.description))}</div>
                   </div>
                 ))}
               </div>
 
               <h3 style={{ marginTop: '36px' }}>
                 <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style={{ color: 'hsl(var(--color-pink))' }}><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/></svg>
-                Chứng chỉ Đạt được
+                {tUI('certSectionTitle')}
               </h3>
               <div className="timeline" style={{ borderLeft: 'none', marginLeft: 0, paddingLeft: 0 }}>
                 {timeline.filter(t => t.type === 'certification').map(item => (
                   <div className="timeline-item" style={{ marginBottom: 0 }} key={item.id}>
-                    <div className="timeline-time" style={{ color: 'hsl(var(--color-cyan))' }}>{item.time_period}</div>
-                    <div className="timeline-subtitle" style={{ marginBottom: '4px' }}>{item.title}</div>
-                    <div className="timeline-desc">{renderFormattedDescription(item.description)}</div>
+                    <div className="timeline-time" style={{ color: 'hsl(var(--color-cyan))' }}>{t(item.time_period)}</div>
+                    <div className="timeline-subtitle" style={{ marginBottom: '4px' }}>{t(item.title)}</div>
+                    <div className="timeline-desc">{renderFormattedDescription(t(item.description))}</div>
                   </div>
                 ))}
               </div>
@@ -444,16 +539,16 @@ function App() {
             <div className="glass-panel split-card">
               <h3>
                 <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style={{ color: 'hsl(var(--color-pink))' }}><rect width="20" height="14" x="2" y="7" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
-                Kinh nghiệm thực tiễn
+                {tUI('expSectionTitle')}
               </h3>
               <div className="timeline">
                 {timeline.filter(t => t.type === 'experience').map(item => (
                   <div className="timeline-item" key={item.id}>
                     <div className="timeline-marker"></div>
-                    <div className="timeline-time">{item.time_period}</div>
-                    <div className="timeline-title">{item.title}</div>
-                    <div className="timeline-subtitle">{item.subtitle}</div>
-                    <div className="timeline-desc">{renderFormattedDescription(item.description)}</div>
+                    <div className="timeline-time">{t(item.time_period)}</div>
+                    <div className="timeline-title">{t(item.title)}</div>
+                    <div className="timeline-subtitle">{t(item.subtitle)}</div>
+                    <div className="timeline-desc">{renderFormattedDescription(t(item.description))}</div>
                   </div>
                 ))}
               </div>
@@ -462,10 +557,10 @@ function App() {
         </section>
 
         {/* Skills Section */}
-        <section id="skills" class="section-wrapper">
+        <section id="skills" className="section-wrapper">
           <div className="section-title-container">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style={{ color: 'hsl(var(--color-pink))' }}><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275Z"/></svg>
-            <h2 className="section-title">Kỹ năng Thế mạnh</h2>
+            <h2 className="section-title">{tUI('skillsTitle')}</h2>
           </div>
 
           <div className="glass-panel" style={{ maxWidth: '800px', margin: '36px auto 0' }}>
@@ -473,7 +568,7 @@ function App() {
               {skills.map(skill => (
                 <div className="skill-item" key={skill.id}>
                   <div className="skill-info">
-                    <span>{skill.name}</span>
+                    <span>{t(skill.name)}</span>
                     <span>{skill.percentage}%</span>
                   </div>
                   <div className="skill-bar-bg">
@@ -489,16 +584,16 @@ function App() {
         <section id="activities" className="section-wrapper">
           <div className="section-title-container">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style={{ color: 'hsl(var(--color-pink))' }}><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.45 1-1 1H4v2h16v-2h-5c-.55 0-1-.45-1-1v-2.34"/><path d="M12 2a4 4 0 0 0-4 4v8a4 4 0 0 0 8 0V6a4 4 0 0 0-4-4Z"/></svg>
-            <h2 className="section-title">Awards & Activities</h2>
+            <h2 className="section-title">{tUI('activitiesTitle')}</h2>
           </div>
 
           <div className="tabs-container">
             {/* Tabs Nav */}
             <div className="tabs-nav">
-              <button className={`tab-btn ${activeTab === 'awards' ? 'active' : ''}`} onClick={() => setActiveTab('awards')}>🏆 Thành tích nổi bật</button>
-              <button className={`tab-btn ${activeTab === 'arts' ? 'active' : ''}`} onClick={() => setActiveTab('arts')}>🎹 Hoạt động Nghệ thuật</button>
-              <button className={`tab-btn ${activeTab === 'science' ? 'active' : ''}`} onClick={() => setActiveTab('science')}>🔬 Robot & Khoa học</button>
-              <button className={`tab-btn ${activeTab === 'shows' ? 'active' : ''}`} onClick={() => setActiveTab('shows')}>📺 Truyền hình & Giải trí</button>
+              <button className={`tab-btn ${activeTab === 'awards' ? 'active' : ''}`} onClick={() => setActiveTab('awards')}>{tUI('tabAwards')}</button>
+              <button className={`tab-btn ${activeTab === 'arts' ? 'active' : ''}`} onClick={() => setActiveTab('arts')}>{tUI('tabArts')}</button>
+              <button className={`tab-btn ${activeTab === 'science' ? 'active' : ''}`} onClick={() => setActiveTab('science')}>{tUI('tabScience')}</button>
+              <button className={`tab-btn ${activeTab === 'shows' ? 'active' : ''}`} onClick={() => setActiveTab('shows')}>{tUI('tabShows')}</button>
             </div>
 
             {/* Tab Content */}
@@ -512,7 +607,7 @@ function App() {
         <section id="gallery" className="section-wrapper">
           <div className="section-title-container">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style={{ color: 'hsl(var(--color-pink))' }}><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275Z"/></svg>
-            <h2 className="section-title">Behind the Scenes 🎬</h2>
+            <h2 className="section-title">{tUI('galleryTitle')}</h2>
           </div>
 
           <div className="gallery-grid">
@@ -528,7 +623,7 @@ function App() {
                     </div>
                   </div>
                 </div>
-                <h3>{item.title}</h3>
+                <h3>{t(item.title)}</h3>
               </div>
             ))}
           </div>
@@ -538,12 +633,12 @@ function App() {
         <section id="contact" className="section-wrapper">
           <div className="section-title-container">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style={{ color: 'hsl(var(--color-pink))' }}><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
-            <h2 className="section-title">Let's Connect</h2>
+            <h2 className="section-title">{tUI('contactTitle')}</h2>
           </div>
 
           <div className="glass-panel contact-card">
-            <p className="contact-subtitle">Hành trình tiếp theo sẽ rất thú vị! Kết nối ngay để cùng nhau collab nhé! 📩</p>
-            <p className="contact-text">Mình đang sống và học tập tại **TP. Hồ Chí Minh** và luôn sẵn sàng cho những ý tưởng nghệ thuật đột phá, những dự án khoa học công nghệ, hay những đợt cọ sát thi đấu robot VEX IQ mới! 💥</p>
+            <p className="contact-subtitle">{tUI('contactSubtitle')}</p>
+            <p className="contact-text" dangerouslySetInnerHTML={{ __html: tUI('contactText').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }}></p>
             
             <div className="social-container">
               {profile.instagram_url && (
@@ -584,7 +679,7 @@ function App() {
 
         {/* Footer */}
         <footer>
-          <p>© 2026 {profile.hero_title}. My rules, My world 💜</p>
+          <p>© 2026 {t(profile.hero_title)}. {tUI('footerRules')}</p>
         </footer>
 
         {/* YouTube Video Modal Dialog */}
@@ -653,21 +748,28 @@ function App() {
         <div className="container">
           <a className="navbar-brand" href="#">
             <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" className="logo-icon"><path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7z"/><path d="M5 20h14"/></svg>
-            {profile.hero_title}
+            {t(profile.hero_title)}
           </a>
           <button className="navbar-toggler" type="button" onClick={() => setMobileMenuOpen(!mobileMenuOpen)} aria-controls="navbarResponsive" aria-expanded="false" aria-label="Toggle navigation">
             <i className="fa fa-bars"></i>
           </button>
           <div className={`collapse navbar-collapse ${mobileMenuOpen ? 'show' : ''}`} id="navbarResponsive">
             <ul className="navbar-nav ms-auto text-uppercase">
-              <li className="nav-item"><a className="nav-link" href="#" onClick={() => setMobileMenuOpen(false)}>Home</a></li>
-              <li className="nav-item"><a className="nav-link" href="#about" onClick={() => setMobileMenuOpen(false)}>About</a></li>
-              <li className="nav-item"><a className="nav-link" href="#education" onClick={() => setMobileMenuOpen(false)}>Timeline</a></li>
-              <li className="nav-item"><a className="nav-link" href="#skills" onClick={() => setMobileMenuOpen(false)}>Skills</a></li>
-              <li className="nav-item"><a className="nav-link" href="#activities" onClick={() => setMobileMenuOpen(false)}>Activities</a></li>
-              <li className="nav-item"><a className="nav-link" href="#gallery" onClick={() => setMobileMenuOpen(false)}>Gallery</a></li>
-              <li className="nav-item"><a className="nav-link active" href="#events" onClick={() => setMobileMenuOpen(false)}>Events</a></li>
-              <li className="nav-item"><a className="nav-link" href="#contact" onClick={() => setMobileMenuOpen(false)}>Contact</a></li>
+              <li className="nav-item"><a className="nav-link" href="#" onClick={() => setMobileMenuOpen(false)}>{tUI('navHome')}</a></li>
+              <li className="nav-item"><a className="nav-link" href="#about" onClick={() => setMobileMenuOpen(false)}>{tUI('navAbout')}</a></li>
+              <li className="nav-item"><a className="nav-link" href="#education" onClick={() => setMobileMenuOpen(false)}>{tUI('navTimeline')}</a></li>
+              <li className="nav-item"><a className="nav-link" href="#skills" onClick={() => setMobileMenuOpen(false)}>{tUI('navSkills')}</a></li>
+              <li className="nav-item"><a className="nav-link" href="#activities" onClick={() => setMobileMenuOpen(false)}>{tUI('navActivities')}</a></li>
+              <li className="nav-item"><a className="nav-link" href="#gallery" onClick={() => setMobileMenuOpen(false)}>{tUI('navGallery')}</a></li>
+              <li className="nav-item"><a className="nav-link active" href="#events" onClick={() => setMobileMenuOpen(false)}>{tUI('navEvents')}</a></li>
+              <li className="nav-item"><a className="nav-link" href="#contact" onClick={() => setMobileMenuOpen(false)}>{tUI('navContact')}</a></li>
+              <li className="nav-item" style={{ display: 'flex', alignItems: 'center', marginLeft: '12px' }}>
+                <div className="lang-switcher">
+                  <button className={`lang-btn ${language === 'vi' ? 'active' : ''}`} onClick={() => setLanguage('vi')}>VI</button>
+                  <span className="lang-divider">|</span>
+                  <button className={`lang-btn ${language === 'en' ? 'active' : ''}`} onClick={() => setLanguage('en')}>EN</button>
+                </div>
+              </li>
             </ul>
           </div>
         </div>
@@ -677,8 +779,8 @@ function App() {
       <header className="masthead" style={{ background: `url('${getFullAssetUrl(events.length && events[0].image_url ? events[0].image_url : '/events_hero_bg.png')}') center/cover no-repeat` }}>
         <div className="container">
           <div className="intro-text">
-            <h1 className="tntn-title">EVENTS</h1>
-            <div className="intro-lead-in">Robotics & Performing Arts Portfolio</div>
+            <h1 className="tntn-title">{tUI('navEvents')}</h1>
+            <div className="intro-lead-in">{tUI('eventSubtitle')}</div>
           </div>
         </div>
       </header>
@@ -690,18 +792,18 @@ function App() {
             {events.map(item => (
               <div className="card" key={item.id}>
                 <div className="card-date-badge">
-                  <i className="fa fa-calendar-o"></i> {item.date_string}
+                  <i className="fa fa-calendar-o"></i> {t(item.date_string)}
                 </div>
                 {item.image_url && (
-                  <img className="card-img" src={getFullAssetUrl(item.image_url)} alt={item.title} />
+                  <img className="card-img" src={getFullAssetUrl(item.image_url)} alt={t(item.title)} />
                 )}
                 <div className="card-body">
-                  <p className="card-category">{item.category}</p>
-                  <h2 className="card-title">{item.title}</h2>
-                  <p className="card-text">{item.description}</p>
+                  <p className="card-category">{t(item.category)}</p>
+                  <h2 className="card-title">{t(item.title)}</h2>
+                  <p className="card-text">{t(item.description)}</p>
                   {item.location && (
                     <div className="card-location">
-                      <i className="fa fa-map-marker"></i> {item.location}
+                      <i className="fa fa-map-marker"></i> {t(item.location)}
                     </div>
                   )}
                 </div>
@@ -714,9 +816,9 @@ function App() {
       {/* Collaboration banner */}
       <section className="sponsors-section">
         <div className="container">
-          <h2 className="section-title">Collaboration & Contact</h2>
+          <h2 className="section-title">{tUI('collabTitle')}</h2>
           <p className="sponsors-desc">
-            Bạn muốn cộng tác hoặc tài trợ cho các dự án VEX IQ Robotics hoặc các buổi biểu diễn nghệ thuật sắp tới? Hãy gửi email trực tiếp cho Trà My tại:
+            {tUI('collabDesc')}
             <br />
             <a href={`mailto:${profile.contact_email}`}>{profile.contact_email}</a>
           </p>
@@ -728,7 +830,7 @@ function App() {
         <div className="container">
           <div className="row align-items-center">
             <div className="col-md-4 copyright">
-              <span>Copyright © {profile.hero_title} 2026</span>
+              <span>Copyright © {t(profile.hero_title)} 2026</span>
             </div>
             <div className="col-md-4">
               <ul className="social-buttons">
@@ -748,7 +850,7 @@ function App() {
               </ul>
             </div>
             <div className="col-md-4 credits">
-              <span>My rules, My world 💜</span>
+              <span>{tUI('footerRules')}</span>
             </div>
           </div>
         </div>

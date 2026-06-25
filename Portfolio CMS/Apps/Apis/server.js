@@ -163,11 +163,24 @@ app.get('/api/portfolio', async (req, res) => {
   try {
     let profileSnap = await db.collection('profile_info').get();
     
-    // Self-seed database on first request if empty
-    if (profileSnap.empty) {
-      console.log('Database empty. Running self-seeding routine...');
-      const { seedDatabase } = require('./db');
-      await seedDatabase();
+    // Self-seed database on first request if empty or migrate if old structure exists
+    let needsMigration = false;
+    const translatableProfileKeys = ['hero_title', 'hero_subtitle', 'hero_description', 'about_bio_p1', 'about_bio_p2', 'personal_quote', 'meta_title', 'meta_description'];
+    profileSnap.forEach(doc => {
+      if (translatableProfileKeys.includes(doc.id) && typeof doc.data().value === 'string') {
+        needsMigration = true;
+      }
+    });
+
+    if (profileSnap.empty || needsMigration) {
+      const { seedDatabase, migrateToLocales } = require('./db');
+      if (profileSnap.empty) {
+        console.log('Database empty. Running self-seeding routine...');
+        await seedDatabase();
+      } else {
+        console.log('Database contains old string format. Running automatic migration...');
+        await migrateToLocales();
+      }
       profileSnap = await db.collection('profile_info').get();
     }
 
@@ -342,6 +355,44 @@ app.delete('/api/admin/users/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// 2c. TRANSLATION ROUTE (FREE AUTO-TRANSLATE)
+app.post('/api/admin/translate', authenticateToken, async (req, res) => {
+  const { text, from, to } = req.body;
+  if (!text) {
+    return res.status(400).json({ error: 'Text to translate is required' });
+  }
+
+  try {
+    const sourceLang = from || 'vi';
+    const targetLang = to || 'en';
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sourceLang}&tl=${targetLang}&dt=t&q=${encodeURIComponent(text)}`;
+
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Google Translate API returned status ${response.status}`);
+    }
+
+    const data = await response.json();
+    let translatedText = '';
+    if (data && data[0]) {
+      data[0].forEach(item => {
+        if (item && item[0]) {
+          translatedText += item[0];
+        }
+      });
+    }
+
+    if (!translatedText) {
+      throw new Error('Could not parse translated text from Google API response');
+    }
+
+    res.json({ translatedText });
+  } catch (error) {
+    console.error('Translation failed:', error);
+    res.status(500).json({ error: `Translation failed: ${error.message}` });
+  }
+});
+
 // 3. ADMIN PROFILE UPDATE
 app.put('/api/admin/profile', authenticateToken, async (req, res) => {
   const profileData = req.body;
@@ -349,7 +400,7 @@ app.put('/api/admin/profile', authenticateToken, async (req, res) => {
     const batch = db.batch();
     Object.entries(profileData).forEach(([k, v]) => {
       const ref = db.collection('profile_info').doc(k);
-      batch.set(ref, { value: String(v) });
+      batch.set(ref, { value: v });
     });
     await batch.commit();
     res.json({ message: 'Profile updated successfully' });
@@ -427,10 +478,10 @@ app.post('/api/admin/timeline', authenticateToken, async (req, res) => {
     const item = {
       id,
       type,
-      time_period,
-      title,
-      subtitle: subtitle || '',
-      description: description || '',
+      time_period: time_period || { vi: '', en: '' },
+      title: title || { vi: '', en: '' },
+      subtitle: subtitle || { vi: '', en: '' },
+      description: description || { vi: '', en: '' },
       order_index: Number(order_index || 0)
     };
     await db.collection('timeline').doc(id).set(item);
@@ -446,10 +497,10 @@ app.put('/api/admin/timeline/:id', authenticateToken, async (req, res) => {
   try {
     const item = {
       type,
-      time_period,
-      title,
-      subtitle: subtitle || '',
-      description: description || '',
+      time_period: time_period || { vi: '', en: '' },
+      title: title || { vi: '', en: '' },
+      subtitle: subtitle || { vi: '', en: '' },
+      description: description || { vi: '', en: '' },
       order_index: Number(order_index || 0)
     };
     await db.collection('timeline').doc(id).update(item);
@@ -487,7 +538,7 @@ app.post('/api/admin/skills', authenticateToken, async (req, res) => {
     const id = crypto.randomUUID();
     const item = {
       id,
-      name,
+      name: name || { vi: '', en: '' },
       percentage: Number(percentage || 0),
       order_index: Number(order_index || 0)
     };
@@ -503,7 +554,7 @@ app.put('/api/admin/skills/:id', authenticateToken, async (req, res) => {
   const { name, percentage, order_index } = req.body;
   try {
     const item = {
-      name,
+      name: name || { vi: '', en: '' },
       percentage: Number(percentage || 0),
       order_index: Number(order_index || 0)
     };
@@ -543,12 +594,12 @@ app.post('/api/admin/events', authenticateToken, async (req, res) => {
     const item = {
       id,
       event_date,
-      date_string,
-      category,
-      title,
-      description,
-      highlight_summary: highlight_summary || '',
-      location: location || '',
+      date_string: date_string || { vi: '', en: '' },
+      category: category || { vi: '', en: '' },
+      title: title || { vi: '', en: '' },
+      description: description || { vi: '', en: '' },
+      highlight_summary: highlight_summary || { vi: '', en: '' },
+      location: location || { vi: '', en: '' },
       image_url: image_url || '',
       tab_category,
       order_index: Number(order_index || 0)
@@ -566,12 +617,12 @@ app.put('/api/admin/events/:id', authenticateToken, async (req, res) => {
   try {
     const item = {
       event_date,
-      date_string,
-      category,
-      title,
-      description,
-      highlight_summary: highlight_summary || '',
-      location: location || '',
+      date_string: date_string || { vi: '', en: '' },
+      category: category || { vi: '', en: '' },
+      title: title || { vi: '', en: '' },
+      description: description || { vi: '', en: '' },
+      highlight_summary: highlight_summary || { vi: '', en: '' },
+      location: location || { vi: '', en: '' },
       image_url: image_url || '',
       tab_category,
       order_index: Number(order_index || 0)
