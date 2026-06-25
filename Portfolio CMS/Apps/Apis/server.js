@@ -19,10 +19,16 @@ const STORAGE_BUCKET = process.env.FIREBASE_STORAGE_BUCKET || `${PROJECT_ID}.fir
 
 // Initialize Firebase Admin SDK
 if (admin.apps.length === 0) {
-  admin.initializeApp({
-    projectId: PROJECT_ID,
-    storageBucket: STORAGE_BUCKET
-  });
+  if (process.env.FIREBASE_CONFIG) {
+    // In Firebase Cloud Functions, initialize without arguments to auto-detect settings
+    admin.initializeApp();
+  } else {
+    // Local fallback configuration
+    admin.initializeApp({
+      projectId: PROJECT_ID,
+      storageBucket: STORAGE_BUCKET
+    });
+  }
 }
 
 const db = admin.firestore();
@@ -410,10 +416,24 @@ app.put('/api/admin/profile', authenticateToken, async (req, res) => {
 });
 
 app.post('/api/admin/upload', authenticateToken, (req, res) => {
-  upload.single('image')(req, res, async (err) => {
+  let requestToParse = req;
+  if (req.rawBody) {
+    const { Readable } = require('stream');
+    requestToParse = Readable.from(req.rawBody);
+    requestToParse.headers = req.headers;
+    requestToParse.method = req.method;
+  }
+
+  upload.single('image')(requestToParse, res, async (err) => {
     if (err) {
       return res.status(400).json({ error: err.message });
     }
+
+    if (req.rawBody) {
+      req.file = requestToParse.file;
+      req.body = requestToParse.body;
+    }
+
     if (!req.file) {
       return res.status(400).json({ error: 'No image file uploaded' });
     }
@@ -439,22 +459,26 @@ app.post('/api/admin/upload', authenticateToken, (req, res) => {
       const publicUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(`uploads/${uniqueFilename}`)}?alt=media&token=${downloadToken}`;
       res.json({ image_url: publicUrl });
     } catch (uploadError) {
-      console.warn('Firebase Storage upload failed, falling back to local storage:', uploadError.message);
+      console.warn('Firebase Storage upload failed:', uploadError.message);
       
-      try {
-        // Save to local filesystem
-        const localUploadsDir = path.join(__dirname, 'public/uploads');
-        fs.mkdirSync(localUploadsDir, { recursive: true });
-        
-        const localFilePath = path.join(localUploadsDir, uniqueFilename);
-        fs.writeFileSync(localFilePath, req.file.buffer);
-        
-        // Return local relative URL (served via express.static on /uploads)
-        res.json({ image_url: `/uploads/${uniqueFilename}` });
-      } catch (localError) {
-        console.error('Local file write failed:', localError);
-        res.status(500).json({ error: `Image upload failed on both cloud and local storage: ${localError.message}` });
+      // Only attempt local filesystem fallback if not running in production Cloud Functions
+      if (!process.env.FIREBASE_CONFIG) {
+        try {
+          // Save to local filesystem
+          const localUploadsDir = path.join(__dirname, 'public/uploads');
+          fs.mkdirSync(localUploadsDir, { recursive: true });
+          
+          const localFilePath = path.join(localUploadsDir, uniqueFilename);
+          fs.writeFileSync(localFilePath, req.file.buffer);
+          
+          // Return local relative URL (served via express.static on /uploads)
+          return res.json({ image_url: `/uploads/${uniqueFilename}` });
+        } catch (localError) {
+          console.error('Local file write failed:', localError);
+        }
       }
+      
+      res.status(500).json({ error: `Image upload failed: ${uploadError.message}` });
     }
   });
 });

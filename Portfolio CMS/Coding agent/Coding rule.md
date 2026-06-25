@@ -25,6 +25,9 @@ This document outlines the development guidelines, testing checklists, and proje
 *   **Null Data Protection**: Enforce defensive logical OR fallbacks (`|| ''`, `|| 0`, `|| []`) and optional chaining (`?.`) on all frontend states when reading database rows. Optional column inputs (like optional image URLs, tags, or description fields) must never cause rendering crashes.
 *   **Session Management Security**: Maintain realistic JWT expiration lifespans (e.g. `8h`) and intercept expired token errors (`401`/`403`) to redirect the user to the log-in page instead of crashing the view.
 *   **Consistent Build Targets**: Frontends must configure `build.target: 'esnext'` inside `vite.config.js` to ensure modern JS feature compilation parity.
+*   **Serverless Platform Parity (Request Streams)**: Before writing backend code to parse request streams (like file uploads via `multer` or `busboy`), check if the code runs in a serverless environment (e.g., Cloud Functions). Runtimes often pre-consume the stream and populate `req.rawBody`. Always check for `req.rawBody` and wrap it in a Node `Readable` stream (e.g. `Readable.from(req.rawBody)`) before passing it to stream parsers to prevent `Unexpected end of form` errors.
+*   **Serverless Filesystem Restrictions**: Serverless functions have a read-only local filesystem (except for `/tmp`). Never write persistent file fallbacks to folders like `public/uploads` in production. Make any local filesystem fallbacks conditional on running in local environments (e.g. `!process.env.FIREBASE_CONFIG`).
+*   **Dynamic SDK Initialization**: In serverless runtimes, initialize SDKs (like `firebase-admin`) without arguments (e.g., `admin.initializeApp()`). This allows the SDK to auto-detect environment variables and the correct configurations (like the default storage bucket name) instead of hardcoding fallback naming conventions.
 
 ---
 
@@ -42,3 +45,12 @@ This document outlines the development guidelines, testing checklists, and proje
 ## 5. User Experience & UI Feedback Rules
 *   **Toast Notifications for Actions**: Always show toast messages (success or failure) to give the administrator feedback when executing state-modifying actions (such as saving profile updates, submitting forms, deleting items, translation requests, or authentication attempts).
 *   **Visual Indicators**: Ensure all asynchronous processing actions display a loading indicator or disable buttons to prevent double submissions.
+
+---
+
+## 6. Technical Risk, Edge Cases & Outdate Prevention Rules
+*   **Memory Exhaustion (OOM) Protection**: When handling file uploads or large payloads in serverless functions (like Cloud Functions), strictly enforce file size limits (e.g., max 5MB) at the gateway/middleware layer to prevent loading excessive buffers into RAM that exceed the function's memory limit.
+*   **Storage Leak Prevention (Orphaned Files)**: When updating or deleting an entity that references a file in Firebase Storage (e.g., event cover images), always delete the old file from the storage bucket to prevent orphan files and accumulation of storage costs.
+*   **Security & MIME Spoofing Validation**: For file uploads, always validate both the file extension and the HTTP `Content-Type` header against an allowed whitelist. For higher security, inspect file headers (magic bytes) to prevent executable/script uploads disguised as images.
+*   **Outdated Dependency Audits**: Maintain a strict schedule for dependency upgrades. Run `npm audit` weekly or integrate automated security scanners. Never lock dependencies to major versions without documented reasons, and verify runtime version compatibility (e.g. Node 22) during library updates.
+*   **Public Access Token Lifecycle**: When constructing convenient public URLs using Firebase Storage download tokens (e.g. `firebaseStorageDownloadTokens`), document the format and ensure the token generation is securely isolated to admin contexts to prevent unauthorized URL token changes.
